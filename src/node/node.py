@@ -24,7 +24,7 @@ class Node:
         peer name/id and host address. If not supplied, the host address (server_host)
         will be determined by attempting to connect to an Internet host like Google.
         """
-        self.debug = 0
+        self.debug = 1
 
         self.max_peers = int(max_peers)
         self.server_port = int(server_port)
@@ -291,3 +291,5 @@ class PeerConnection:
     def __str__(self) -> str:
         # --------------------------------------------------------------------------
         return "|%s|" & id
+
+# end PeerConnection class
