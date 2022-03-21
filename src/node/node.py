@@ -38,7 +38,7 @@ class Node:
         else:
             self.node_id = '%s:%d' % (self.server_host, self.server_port)
 
-        self.node_lock = threading.Lock()
+        self.peer_lock = threading.Lock()
 
         self.peers = {}        # node_id => (host, port) mapping
         self.shutdown = False  # condition used to stop main loop
@@ -68,9 +68,9 @@ class Node:
         # --------------------------------------------------------------------------
         """Dispatches messages from the socket connection."""
 
-        self.__debug('New Child '.join(
-            str(threading.currentThread().getName())))
-        self.__debug('Connected '.join(str(client_socket.getpeername())))
+        self.__debug('New Thread Created: ' +
+                     str(threading.currentThread().getName()))
+        self.__debug('Connected ' + str(client_socket.getpeername()))
 
         host, port = client_socket.getpeername()
         peer_connection = PeerConnection(
@@ -91,10 +91,122 @@ class Node:
             raise
         except:
             if self.debug:
-                traceback.print_exc()
+                # traceback.print_exc()
+                self.__debug('Failed to handle message')
 
         self.__debug('Disconnecting '.join(str(client_socket.getpeername())))
         peer_connection.close()
+
+    # ------------------------------------------------------------------------------
+    def __run_stabilizer(self, stabilizer, delay) -> None:
+        # --------------------------------------------------------------------------
+        while not self.shutdonw:
+            stabilizer()
+            time.sleep(delay)
+
+    # ------------------------------------------------------------------------------
+    def set_id(self, id) -> None:
+        # --------------------------------------------------------------------------
+        self.node_id = id
+
+    # ------------------------------------------------------------------------------
+    def start_stabilizer(self, stabilizer, delay) -> None:
+        # --------------------------------------------------------------------------
+        """Registers and starts a stabilizer function with this peer. The function
+        The function will be activated every <delay> seconds.
+        """
+
+        stabilizer_thread = threading.Thread(
+            target=self.__run_stabilizer, args=[stabilizer, delay])
+        stabilizer_thread.start()
+
+    # ------------------------------------------------------------------------------
+    def add_handler(self, message_type, handler) -> None:
+        # --------------------------------------------------------------------------
+        """Registers the handler for the given message type with this peer."""
+
+        assert(len(message_type) == 4)
+        self.handlers[message_type] = handler
+
+    # ------------------------------------------------------------------------------
+    def add_router(self, router) -> None:
+        # --------------------------------------------------------------------------
+        """Registers a routing function with this peer. The setup of routing is as
+        follows: This peer maintains a list of other know peers (in self.peers). The
+        routing function should take the name of a peer (which may not necessarily
+        be present in self.peers) and decide which of the known peers a message should
+        be routed to next in order to (hopefully) reach the desired peer. The router 
+        function should return a tuple of three values: (next_peer_id, host, and port).
+        If the message cannot be routed, the next_peer_id should be None.
+        """
+
+        self.router = router
+
+    # ------------------------------------------------------------------------------
+    def add_peer(self, peer_id, host, port) -> bool:
+        # --------------------------------------------------------------------------
+        """Adds a peer name and host:port mapping to the known list of peers."""
+
+        if peer_id not in self.peers and (self.max_peers == 0 or len(self.peers) < self.max_peers):
+            self.peers[peer_id] = (host, int(port))
+            return True
+        return False
+
+    # ------------------------------------------------------------------------------
+    def get_peer(self, peer_id) -> tuple:
+        # --------------------------------------------------------------------------
+        """Returns the (host, port) tuple for the given peer name."""
+        assert(peer_id in self.peers)  # maybe make this just return NULL
+        return self.peers[peer_id]
+
+    # ------------------------------------------------------------------------------
+    def remove_peer(self, peer_id) -> None:
+        # --------------------------------------------------------------------------
+        """Removes peer information from the know list of peers."""
+
+        if peer_id in self.peers:
+            del self.peers[peer_id]
+
+    # ------------------------------------------------------------------------------
+    def insert_peer_at(self, index, peer_id, host, port) -> None:
+        # --------------------------------------------------------------------------
+        """Inserts a peer's information at a specific position in the list of peers.
+        The functions insert_peer_at, get_peer_at, and remove_peer_at should not be 
+        used concurrently with add_peer, get_peer, and/or remove_peer.
+        """
+
+        self.peers[index] = (peer_id, host, int(port))
+
+    # ------------------------------------------------------------------------------
+    def get_peer_at(self, index) -> tuple:
+        # --------------------------------------------------------------------------
+
+        if index not in self.peers:
+            return None
+        return self.peers[index]
+
+    # ------------------------------------------------------------------------------
+    def remove_peer_at(self, index) -> None:
+        # --------------------------------------------------------------------------
+
+        self.remove_peer(self, self.peers[index])
+
+    # ------------------------------------------------------------------------------
+    def number_of_peers(self) -> int:
+        # --------------------------------------------------------------------------
+        """Return the number of known peer's."""
+
+        return len(self.peers)
+
+    # ------------------------------------------------------------------------------
+    def max_peers_reached(self) -> bool:
+        # --------------------------------------------------------------------------
+        """Returns whether the maximum limit of names has been added to the list of
+        known peers. Always returns True if max_peers is set to 0
+        """
+
+        assert(self.max_peers == 0 or len(self.peers <= self.max_peers))
+        return self.max_peers > 0 and len(self.peers) == self.max_peers
 
     # ------------------------------------------------------------------------------
     def make_server_socket(self, port, backlog=5) -> socket:
@@ -158,6 +270,37 @@ class Node:
         return message_replies
 
     # ------------------------------------------------------------------------------
+    def check_live_peers(self) -> None:
+        # --------------------------------------------------------------------------
+        """Attempts to ping all currently know peers in order to ensure that they
+        are still active. Removes any from the peer list that do not reply. This 
+        function can be used as a simpler stabilizer.
+        """
+
+        peers_to_delete = []
+        for peer_id in self.peers:
+            is_connected = False
+            try:
+                self.__debug('Check live %s' % peer_id)
+                host, port = self.peers[peer_id]
+                peer_connection = PeerConnection(
+                    peer_id, host, port, debug=self.debug)
+                peer_connection.send_data('PING', '')
+                is_connected = True
+            except:
+                peers_to_delete.append(peer_id)
+            if is_connected:
+                peer_connection.close()
+
+        self.peer_lock.acquire()
+        try:
+            for peer_id in peers_to_delete:
+                if peer_id in self.peers:
+                    del self.peers[peer_id]
+        finally:
+            self.peer_lock.release()
+
+    # ------------------------------------------------------------------------------
     def start_server_listen(self) -> None:
         # --------------------------------------------------------------------------
         server_socket = self.make_server_socket(self.server_port)
@@ -180,7 +323,7 @@ class Node:
                 continue
             except:
                 if self.debug:
-                    traceback.print_exc()
+                    # traceback.print_exc()
                     continue
 
         self.__debug('Main loop exiting')
@@ -208,11 +351,17 @@ class PeerConnection:
         else:
             self.s = sock
 
+        # Initializes a file in read/write mode
         self.sd = self.s.makefile('rw', 0)
 
     # ------------------------------------------------------------------------------
     def __make_message(self, message_type, message_data) -> bytes:
         # --------------------------------------------------------------------------
+        """Packs the message into a string representation of the specified type.
+
+        For more information about packing visit: https://docs.python.org/3/library/struct.html
+        """
+
         message_length = len(message_data)
         message = struct.pack("!4sL%ds" % message_length,
                               message_type, message_length, message_data)
