@@ -74,9 +74,10 @@ class Node:
 
         host, port = client_socket.getpeername()
         peer_connection = PeerConnection(
-            None, host, port, client_socket, debug=False)
+            None, host, port, client_socket, debug=True)
 
         try:
+            self.__debug('Attemping to receive data from client')
             message_type, message_data = peer_connection.receive_data()
             if message_type:
                 message_type = message_type.upper()
@@ -94,13 +95,13 @@ class Node:
                 # traceback.print_exc()
                 self.__debug('Failed to handle message')
 
-        self.__debug('Disconnecting '.join(str(client_socket.getpeername())))
+        self.__debug('Disconnecting ' + str(client_socket.getpeername()))
         peer_connection.close()
 
     # ------------------------------------------------------------------------------
     def __run_stabilizer(self, stabilizer, delay) -> None:
         # --------------------------------------------------------------------------
-        while not self.shutdonw:
+        while not self.shutdown:
             stabilizer()
             time.sleep(delay)
 
@@ -211,7 +212,10 @@ class Node:
     # ------------------------------------------------------------------------------
     def make_server_socket(self, port, backlog=5) -> socket:
         # --------------------------------------------------------------------------
-        """Constructs and prepares a server socket listening on given port."""
+        """Constructs and prepares a server socket listening on given port.
+
+        For more information on port forwarding visit: https://stackoverflow.com/questions/45097727/python-sockets-port-forwarding
+        """
 
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -352,7 +356,7 @@ class PeerConnection:
             self.s = sock
 
         # Initializes a file in read/write mode
-        self.sd = self.s.makefile('rw', 0)
+        self.sd = self.s.makefile('rw', 1024)
 
     # ------------------------------------------------------------------------------
     def __make_message(self, message_type, message_data) -> bytes:
@@ -382,8 +386,9 @@ class PeerConnection:
 
         try:
             message = self.__make_message(message_type, message_data)
-            self.sd.write(message)
-            self.sd.flush()
+            # self.sd.write(message)
+            # self.sd.flush()
+            self.s.send(message_data.encode())
         except KeyboardInterrupt:
             raise
         except:
@@ -398,24 +403,30 @@ class PeerConnection:
         """Receive a message from a peer connection. Returns (None, None)
         if there was any error.
         """
+        self.__debug('Attempting to receive data...')
 
         try:
+            l = self.s.recv(1024)
+            print(l.decode())
             message_type = self.sd.read(4)
-            if not message_type:
-                return (None, None)
+            # if not message_type:
+            #     self.__debug('Message type is None')
+            #     return (None, None)
 
-            len_str = self.sd.read(4)
-            message_length = int(struct.unpack("!L", len_str)[0])
+            # len_str = self.sd.read(4)
+            # message_length = int(struct.unpack("!L", len_str)[0])
+            # self.__debug('MESSAGE LENGTH: %s' % message_length)
             message = ""
 
-            while len(message) != message_length:
-                data = self.sd.read(min(2048, message_length - len(message)))
-                if not len(data):
-                    break
-                message.join(data)
+            # while len(message) != message_length:
+            #     data = self.sd.read(min(2048, message_length - len(message)))
+            #     if not len(data):
+            #         break
+            #     message.join(data)
+            #     self.__debug('MESSAGE: %s' % message)
 
-            if len(message) != message_length:
-                return (None, None)
+            # if len(message) != message_length:
+            #     return (None, None)
         except KeyboardInterrupt:
             raise
         except:
@@ -423,7 +434,7 @@ class PeerConnection:
                 traceback.print_exc()
             return (None, None)
 
-        return(message_type, message)
+        return (message_type, message)
 
     # ------------------------------------------------------------------------------
     def close(self) -> None:
