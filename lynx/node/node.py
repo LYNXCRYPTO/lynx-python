@@ -359,16 +359,17 @@ class PeerConnection:
         self.sd = self.s.makefile('rw', 1024)
 
     # ------------------------------------------------------------------------------
-    def __make_message(self, message_type, message_data) -> bytes:
+    def __make_message(self, message_type, message_data) -> str:
         # --------------------------------------------------------------------------
         """Packs the message into a string representation of the specified type.
 
         For more information about packing visit: https://docs.python.org/3/library/struct.html
         """
 
-        message_length = len(message_data)
-        message = struct.pack("!4sL%ds" % message_length,
-                              message_type, message_length, message_data)
+        # message_length = len(message_data)
+        # message = struct.pack("!4sL%ds" % message_length,
+        #                       message_type, message_length, message_data)
+        message = message_type + message_data
         return message
 
     # ------------------------------------------------------------------------------
@@ -386,9 +387,7 @@ class PeerConnection:
 
         try:
             message = self.__make_message(message_type, message_data)
-            # self.sd.write(message)
-            # self.sd.flush()
-            self.s.send(message_data.encode())
+            self.s.send(message.encode())
         except KeyboardInterrupt:
             raise
         except:
@@ -406,9 +405,9 @@ class PeerConnection:
         self.__debug('Attempting to receive data...')
 
         try:
-            l = self.s.recv(1024)
-            print(l.decode())
-            message_type = self.sd.read(4)
+            message = self.s.recv(1024)
+            message_type = message.decode()[:4]
+            message_data = message.decode()[4:]
             # if not message_type:
             #     self.__debug('Message type is None')
             #     return (None, None)
@@ -416,7 +415,6 @@ class PeerConnection:
             # len_str = self.sd.read(4)
             # message_length = int(struct.unpack("!L", len_str)[0])
             # self.__debug('MESSAGE LENGTH: %s' % message_length)
-            message = ""
 
             # while len(message) != message_length:
             #     data = self.sd.read(min(2048, message_length - len(message)))
@@ -434,7 +432,7 @@ class PeerConnection:
                 traceback.print_exc()
             return (None, None)
 
-        return (message_type, message)
+        return (message_type, message_data)
 
     # ------------------------------------------------------------------------------
     def close(self) -> None:
