@@ -1,5 +1,9 @@
 # node.py
 
+from io import TextIOWrapper
+from os.path import exists, getsize
+import json
+import pickle
 import socket
 import struct
 import threading
@@ -20,7 +24,7 @@ class Node:
         # --------------------------------------------------------------------------
         """Initializes a node servent with the ability to index information
         for up to max_nodes number of peers (max_nodes may be set to 0 to allow for an
-        unlimited number of peers), listening on a given server port, with a given 
+        unlimited number of peers), listening on a given server port, with a given
         peer name/id and host address. If not supplied, the host address (server_host)
         will be determined by attempting to connect to an Internet host like Google.
         """
@@ -41,10 +45,14 @@ class Node:
         self.peer_lock = threading.Lock()
 
         self.peers = {}        # node_id => (host, port) mapping
-        self.shutdown = False  # condition used to stop main loop
+        self.known_peers = {}
+
+        self.__init_known_peers()
 
         self.handlers = {}
         self.router = None
+
+        self.shutdown = False  # condition used to stop main loop
 
     # ------------------------------------------------------------------------------
     def __init_server_host(self) -> None:
@@ -65,6 +73,57 @@ class Node:
             display_debug(msg)
 
     # ------------------------------------------------------------------------------
+    def __init_known_peers(self) -> None:
+        # --------------------------------------------------------------------------
+        """Checks to see if known_peers.dat file exist. If exists, peers will be 
+        added to self.known_peers. If the amount of known peers is less than 12,
+        the file is formatted incorrectly, or the file does not exist, then 
+        create/re-initialize the file.
+        """
+        if exists('known_peers.dat') and getsize('known_peers.dat') > 0:
+            known_peers_file = open('known_peers.dat', 'r+')
+            try:
+                data = json.loads(known_peers_file.read())
+                if data and isinstance(data, dict):
+                    self.known_peers = data
+                    if len(self.known_peers) < 12:
+                        self.__debug(
+                            'Less than 12 known peers (%i). Finding more peers...' % len(self.known_peers))
+                        self.discover_peers()
+                else:
+                    self.__debug(
+                        '"known_peers.dat" is empty, finding more peers...')
+                    self.discover_peers()
+            except ValueError:
+                self.__debug(
+                    '"known_peers.dat" is formatted incorrectly, Re-initializing...')
+                known_peers_file.seek(0)
+                known_peers_file.write(json.dumps(self.known_peers))
+                known_peers_file.truncate()
+            except:
+                self.debug('ERROR: Unable to read/write to "known_peers.dat"')
+            finally:
+                known_peers_file.close()
+        else:
+            self.__debug(
+                'Creating "known_peers.dat" and finding more peers...')
+            known_peers_file = open('known_peers.dat', 'w')
+            try:
+                known_peers_file.write(json.dumps(self.known_peers))
+                self.discover_peers()
+            except:
+                self.debug('ERROR: Unable to read/write to "known_peers.dat"')
+            finally:
+                known_peers_file.close()
+
+    # ------------------------------------------------------------------------------
+
+    def discover_peers(self) -> None:
+        # --------------------------------------------------------------------------
+        self.__debug('Discover_peers() called!')
+
+    # ------------------------------------------------------------------------------
+
     def __handle_peer(self, client_socket) -> None:
         # --------------------------------------------------------------------------
         """Dispatches messages from the socket connection."""

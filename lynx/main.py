@@ -1,5 +1,5 @@
 
-from node.node import Node
+from node import Node
 
 
 def hello(peer_connection, message_data):
@@ -9,8 +9,8 @@ def hello(peer_connection, message_data):
 def main():
     node = Node(max_peers=12, server_port="6969",
                 node_id="12345")
-    node.add_handler(message_type="HELL", handler=hello)
-    node.start_server_listen()
+    # node.add_handler(message_type="HELL", handler=hello)
+    # node.start_server_listen()
 
 
 if __name__ == "__main__":
