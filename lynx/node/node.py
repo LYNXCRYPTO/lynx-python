@@ -52,9 +52,10 @@ class Node:
         """Attempts to connect to an Internet host like Google to determine
         the local machine's IP address.
         """
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.connect(('www.google.com', 80))
-        self.serverhost = server_socket.getsockname()[0]
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        server_socket.connect(('8.8.8.8', 80))
+        self.server_host = server_socket.getsockname()[0]
+        self.__debug('SERVER HOST: ' + self.server_host)
         server_socket.close()
 
     # ------------------------------------------------------------------------------
