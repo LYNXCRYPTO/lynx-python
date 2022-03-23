@@ -80,9 +80,10 @@ class Node:
         the file is formatted incorrectly, or the file does not exist, then 
         create/re-initialize the file.
         """
-        if exists('known_peers.dat') and getsize('known_peers.dat') > 0:
-            known_peers_file = open('known_peers.dat', 'r+')
-            try:
+
+        try:
+            if exists('known_peers.dat'):
+                known_peers_file = open('known_peers.dat', 'r+')
                 data = json.loads(known_peers_file.read())
                 if data and isinstance(data, dict):
                     self.known_peers = data
@@ -94,27 +95,22 @@ class Node:
                     self.__debug(
                         '"known_peers.dat" is empty, finding more peers...')
                     self.discover_peers()
-            except ValueError:
-                self.__debug(
-                    '"known_peers.dat" is formatted incorrectly, Re-initializing...')
-                known_peers_file.seek(0)
-                known_peers_file.write(json.dumps(self.known_peers))
-                known_peers_file.truncate()
-            except:
-                self.debug('ERROR: Unable to read/write to "known_peers.dat"')
-            finally:
-                known_peers_file.close()
-        else:
+            else:
+                raise FileNotFoundError
+        except ValueError:
             self.__debug(
-                'Creating "known_peers.dat" and finding more peers...')
+                '"known_peers.dat" is formatted incorrectly or empty, Re-initializing...')
+            known_peers_file.seek(0)
+            known_peers_file.write(json.dumps(self.known_peers))
+            known_peers_file.truncate()
+        except FileNotFoundError:
+            self.__debug('"known_peers.dat" not found. Creating new file...')
             known_peers_file = open('known_peers.dat', 'w')
-            try:
-                known_peers_file.write(json.dumps(self.known_peers))
-                self.discover_peers()
-            except:
-                self.debug('ERROR: Unable to read/write to "known_peers.dat"')
-            finally:
-                known_peers_file.close()
+            known_peers_file.write(json.dumps(self.known_peers))
+        except:
+            self.debug('ERROR: Unable to read/write to "known_peers.dat"')
+        finally:
+            known_peers_file.close()
 
     # ------------------------------------------------------------------------------
 
