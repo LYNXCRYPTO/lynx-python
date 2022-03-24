@@ -1,7 +1,6 @@
 # node.py
 
-from io import TextIOWrapper
-from os.path import exists, getsize
+from os.path import exists
 import json
 import pickle
 import socket
@@ -52,7 +51,7 @@ class Node:
         self.handlers = {}
         self.router = None
 
-        self.shutdown = False  # condition used to stop main loop
+        self.shutdown = False  # condition used to stop server listen
 
     # ------------------------------------------------------------------------------
     def __init_server_host(self) -> None:
@@ -67,18 +66,17 @@ class Node:
         server_socket.close()
 
     # ------------------------------------------------------------------------------
-    def __debug(self, msg) -> None:
+    def __debug(self, message) -> None:
         # --------------------------------------------------------------------------
         if self.debug:
-            display_debug(msg)
+            display_debug(message)
 
     # ------------------------------------------------------------------------------
     def __init_known_peers(self) -> None:
         # --------------------------------------------------------------------------
         """Checks to see if known_peers.dat file exist. If exists, peers will be 
-        added to self.known_peers. If the amount of known peers is less than 12,
-        the file is formatted incorrectly, or the file does not exist, then 
-        create/re-initialize the file.
+        added to self.known_peers. If the file is formatted incorrectly, 
+        or the file does not exist, then create/re-initialize the file.
         """
 
         try:
@@ -88,13 +86,10 @@ class Node:
                 if data and isinstance(data, dict):
                     self.known_peers = data
                     if len(self.known_peers) < 12:
-                        self.__debug(
-                            'Less than 12 known peers (%i). Finding more peers...' % len(self.known_peers))
-                        self.discover_peers()
+                        self.__debug('Less than 12 known peers (%i).' %
+                                     len(self.known_peers))
                 else:
-                    self.__debug(
-                        '"known_peers.dat" is empty, finding more peers...')
-                    self.discover_peers()
+                    self.__debug('"known_peers.dat" is empty.')
             else:
                 raise FileNotFoundError
         except ValueError:
@@ -108,18 +103,16 @@ class Node:
             known_peers_file = open('known_peers.dat', 'w')
             known_peers_file.write(json.dumps(self.known_peers))
         except:
-            self.debug('ERROR: Unable to read/write to "known_peers.dat"')
+            self.debug('ERROR: Unable to read/write to "known_peers.dat".')
         finally:
             known_peers_file.close()
 
     # ------------------------------------------------------------------------------
-
     def discover_peers(self) -> None:
         # --------------------------------------------------------------------------
         self.__debug('Discover_peers() called!')
 
     # ------------------------------------------------------------------------------
-
     def __handle_peer(self, client_socket) -> None:
         # --------------------------------------------------------------------------
         """Dispatches messages from the socket connection."""

@@ -1,5 +1,6 @@
 
 from node import Node
+from account import Account
 
 
 def hello(peer_connection, message_data):
@@ -7,10 +8,11 @@ def hello(peer_connection, message_data):
 
 
 def main():
-    node = Node(max_peers=12, server_port="6969",
-                node_id="12345")
-    # node.add_handler(message_type="HELL", handler=hello)
-    # node.start_server_listen()
+    account = Account()
+    message = 'Hello there!'
+    signature = account.sign_message(message)
+    is_message_valid = account.verify_signature(
+        message=message, sender_public_key=account.public_key, signature=signature)
 
 
 if __name__ == "__main__":
