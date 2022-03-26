@@ -1,15 +1,10 @@
 # account.py
 
-import threading
+from node import display_debug
 from Crypto.PublicKey import RSA
 from Crypto.Signature.pkcs1_15 import PKCS115_SigScheme
 from Crypto.Hash import SHA256
 import binascii
-
-
-def display_debug(msg):
-    """Prints a message to the screen with the name of the current thread"""
-    print("[%s] %s" % (str(threading.currentThread().getName()), msg))
 
 
 class Account:

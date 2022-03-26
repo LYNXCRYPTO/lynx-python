@@ -1,6 +1,7 @@
 
 from node import Node
 from account import Account
+from message import Message
 
 
 def hello(peer_connection, message_data):
@@ -8,11 +9,8 @@ def hello(peer_connection, message_data):
 
 
 def main():
-    account = Account()
-    message = 'Hello there!'
-    signature = account.sign_message(message)
-    is_message_valid = account.verify_signature(
-        message=message, sender_public_key=account.public_key, signature=signature)
+    message = Message()
+    message.validate()
 
 
 if __name__ == "__main__":
