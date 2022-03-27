@@ -1,6 +1,7 @@
 # message.py
 
 from datetime import datetime
+from msilib.schema import Class
 from node import display_debug
 
 
@@ -58,3 +59,5 @@ class Message:
         return True
 
 # end Message class
+
+

@@ -48,8 +48,8 @@ class Node:
 
         self.__init_known_peers()
 
-        self.handlers = {}
-        self.router = None
+        self.handlers = {} # map of message types to functions
+        self.router = None 
 
         self.shutdown = False  # condition used to stop server listen
 
