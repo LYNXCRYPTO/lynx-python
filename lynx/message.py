@@ -64,27 +64,26 @@ class Message:
 
 from account import Account
 
-class SignMessage:
+class SignedMessage:
     """
     Verifys and signs message content
     """
     # ------------------------------------------------------------------------------
-    def __init__(self,message,s) -> None:
+    def __init__(self,message: Message,signature) -> None:
     # ------------------------------------------------------------------------------
         """
         Init message object
         """
-        self.message = Message(message)
-        self.s = s
+        self.message = message
+        self.signature = signature
 
     # ------------------------------------------------------------------------------
-    def is_signed(self):
+    def is_signed(self) -> bool:
     # ------------------------------------------------------------------------------
         """
         Returns if message is signed
         """
-        
-
+        return self.signature is not None
 
 #end signMessage class
             
