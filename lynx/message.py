@@ -3,7 +3,6 @@
 from datetime import datetime
 from msilib.schema import Class
 from node import display_debug
-from account import Account
 
 
 class Message:
@@ -63,34 +62,28 @@ class Message:
 
 #signMessage class
 
+from account import Account
+
 class SignMessage:
     """
     Verifys and signs message content
     """
     # ------------------------------------------------------------------------------
-    def __init__(self, message_type, flag, message_data,timestamp) -> None:
+    def __init__(self,message,s) -> None:
     # ------------------------------------------------------------------------------
         """
         Init message object
         """
-        self.message_type = message_type
-        self.flag = flag
-        self.message_data = message_data
-        self.timestamp = timestamp
+        self.message = Message(message)
+        self.s = s
 
     # ------------------------------------------------------------------------------
-    def signedmessage(self):
+    def is_signed(self):
     # ------------------------------------------------------------------------------
         """
-        Returns signed message
+        Returns if message is signed
         """
-        message = (self.message_type, self.flag, self.message_data, self.timestamp)
-        if Message.validate(message):
-            if not all(message):
-                signed = Account.sign_message(message)
-                return signed
-            else:
-                display_debug('Message format invalid!')
+        
 
 
 #end signMessage class
