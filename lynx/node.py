@@ -1,5 +1,7 @@
 # node.py
 
+from account import Account
+from message import Message, SignedMessage
 from os.path import exists
 import json
 import pickle
@@ -19,7 +21,7 @@ class Node:
     """Implements the core functionality of a node on the Lynx network."""
 
     # ------------------------------------------------------------------------------
-    def __init__(self, max_peers, server_port, node_id=None, server_host=None) -> None:
+    def __init__(self, account: Account, server_port=6969, node_id=None, server_host=None, max_peers=12,) -> None:
         # --------------------------------------------------------------------------
         """Initializes a node servent with the ability to index information
         for up to max_nodes number of peers (max_nodes may be set to 0 to allow for an
@@ -28,6 +30,8 @@ class Node:
         will be determined by attempting to connect to an Internet host like Google.
         """
         self.debug = 1
+
+        self.account = account
 
         self.max_peers = int(max_peers)
         self.server_port = int(server_port)
@@ -80,8 +84,8 @@ class Node:
         """
 
         try:
-            if exists('known_peers.dat'):
-                known_peers_file = open('known_peers.dat', 'r+')
+            if exists('../known_peers.dat'):
+                known_peers_file = open('../known_peers.dat', 'r+')
                 data = json.loads(known_peers_file.read())
                 if data and isinstance(data, dict):
                     self.known_peers = data
@@ -100,7 +104,7 @@ class Node:
             known_peers_file.truncate()
         except FileNotFoundError:
             self.__debug('"known_peers.dat" not found. Creating new file...')
-            known_peers_file = open('known_peers.dat', 'w')
+            known_peers_file = open('../known_peers.dat', 'w')
             known_peers_file.write(json.dumps(self.known_peers))
         except:
             self.debug('ERROR: Unable to read/write to "known_peers.dat".')
@@ -113,6 +117,29 @@ class Node:
         self.__debug('Discover_peers() called!')
 
     # ------------------------------------------------------------------------------
+    def connect_to_bootstrap_nodes(self):
+        # --------------------------------------------------------------------------
+        bootstrap_nodes = {
+            '1234': ('127.0.0.1', '6969'), }
+        for node in bootstrap_nodes:
+            if self.node_id != node:
+                try:
+                    bootstrap_node_thread = threading.Thread(target=self.connect_and_send, args=[
+                                                             bootstrap_nodes[node][0], bootstrap_nodes[node][1], 'request', 0, 'Peer Request', node])
+                    bootstrap_node_thread.start()
+                except:
+                    self.__debug(
+                        'Failed to connect to bootstrap node (node_id: %s)' % node)
+
+    # ------------------------------------------------------------------------------
+    def request_peers(self, peer_connection):
+        # --------------------------------------------------------------------------
+        print()
+        message = Message(type='request', flag=0, data='Peer Request')
+        signed_message = self.account.sign_message(message=message)
+        peer_connection.send_data(signed_message)
+
+    # ------------------------------------------------------------------------------
     def __handle_peer(self, client_socket) -> None:
         # --------------------------------------------------------------------------
         """Dispatches messages from the socket connection."""
@@ -121,27 +148,35 @@ class Node:
                      str(threading.currentThread().getName()))
         self.__debug('Connected ' + str(client_socket.getpeername()))
 
-        host, port = client_socket.getpeername()
-        peer_connection = PeerConnection(
-            None, host, port, client_socket, debug=True)
-
         try:
+            host, port = client_socket.getpeername()
+            peer_connection = PeerConnection(
+                account=self.account, peer_id=None, host=host, port=port, sock=client_socket, debug=True)
+
             self.__debug('Attemping to receive data from client')
-            message_type, message_data = peer_connection.receive_data()
-            if message_type:
-                message_type = message_type.upper()
-            if message_type not in self.handlers:
+            message = peer_connection.receive_data()
+
+            if message is None:
+                raise ValueError
+
+            if message.message.type:
+                message.message.type = message.message.type.upper()
+            if message.message.type not in self.handlers:
                 self.__debug('Not handled: %s: %s' %
-                             (message_type, message_data))
+                             (message.message.type, message.message.data))
             else:
                 self.__debug('Handling node message: %s: %s' %
-                             (message_type, message_data))
-                self.handlers[message_type](peer_connection, message_data)
+                             (message.message.type, message.message.data))
+                self.handlers[message.message.type](
+                    peer_connection, message.message.data)
+        except ValueError:
+            self.__debug(
+                'Message receive was not formatted correctly or was of None value.')
         except KeyboardInterrupt:
             raise
         except:
             if self.debug:
-                # traceback.print_exc()
+                traceback.print_exc()
                 self.__debug('Failed to handle message')
 
         self.__debug('Disconnecting ' + str(client_socket.getpeername()))
@@ -290,10 +325,10 @@ class Node:
             self.__debug('Unable to route %s to %s' % (message_type, peer_id))
             return None
 
-        return self.connect_and_send(host, port, message_type, message_data, peer_id=next_peer_id, wait_for_reply=wait_for_reply)
+        return self.connect_and_send(host, port, message_type, message_data, peer_id=next_peer_id)
 
     # ------------------------------------------------------------------------------
-    def connect_and_send(self, host, port, message_type, message_data, peer_id, wait_for_reply=True) -> list[tuple[str, str]]:
+    def connect_and_send(self, host, port, message_type, message_flag, message_data, peer_id) -> list[tuple[str, str]]:
         # --------------------------------------------------------------------------
         """Connects and sends a message to the specified host:port. The host's
         reply, if expected, will be returned as a list of tuples.
@@ -302,11 +337,11 @@ class Node:
         message_replies = []
         try:
             peer_connection = PeerConnection(
-                peer_id, host, port, debug=self.debug)
-            peer_connection.send_data(message_type, message_data)
+                account=self.account, peer_id=peer_id, host=host, port=port, debug=self.debug)
+            peer_connection.send_data(message_type, message_flag, message_data)
             self.__debug('Sent %s: %s' % (peer_id, message_type))
 
-            if wait_for_reply:
+            if message_type == 'request':
                 reply = peer_connection.receive_data()
                 while (reply != (None, None)):
                     message_replies.append(reply)
@@ -337,7 +372,7 @@ class Node:
                 self.__debug('Check live %s' % peer_id)
                 host, port = self.peers[peer_id]
                 peer_connection = PeerConnection(
-                    peer_id, host, port, debug=self.debug)
+                    account=self.account, peer_id=peer_id, host=host, port=port, debug=self.debug)
                 peer_connection.send_data('PING', '')
                 is_connected = True
             except:
@@ -391,9 +426,11 @@ class Node:
 class PeerConnection:
 
     # ------------------------------------------------------------------------------
-    def __init__(self, peer_id, host, port, sock=None, debug=False) -> None:
+    def __init__(self, peer_id, host, port, sock=None, account: Account = None, debug=False) -> None:
         # --------------------------------------------------------------------------
         # any exceptions thrown upwards
+
+        self.account = account
 
         self.id = peer_id
         self.debug = debug
@@ -408,35 +445,38 @@ class PeerConnection:
         self.sd = self.s.makefile('rw', 1024)
 
     # ------------------------------------------------------------------------------
-    def __make_message(self, message_type, message_data) -> str:
-        # --------------------------------------------------------------------------
-        """Packs the message into a string representation of the specified type.
-
-        For more information about packing visit: https://docs.python.org/3/library/struct.html
-        """
-
-        # message_length = len(message_data)
-        # message = struct.pack("!4sL%ds" % message_length,
-        #                       message_type, message_length, message_data)
-        message = message_type + message_data
-        return message
-
-    # ------------------------------------------------------------------------------
     def __debug(self, message) -> None:
         # --------------------------------------------------------------------------
         if self.debug:
             display_debug(message)
 
     # ------------------------------------------------------------------------------
-    def send_data(self, message_type, message_data) -> bool:
+    def __make_message(self, message_type, message_flag, message_data) -> SignedMessage:
+        # --------------------------------------------------------------------------
+        """Packs the message into a Message object and then signs it using the 
+        provided Account object.
+
+        For more information about packing visit: https://docs.python.org/3/library/struct.html
+        """
+
+        message = Message(type=message_type,
+                          flag=message_flag, data=message_data)
+        signed_message = self.account.sign_message(message=message)
+        return signed_message
+
+    # ------------------------------------------------------------------------------
+    def send_data(self, message_type, message_flag, message_data) -> bool:
         # --------------------------------------------------------------------------
         """Send a message through a peer connection. Returns True on success or 
         False if there was an error.
         """
 
         try:
-            message = self.__make_message(message_type, message_data)
-            self.s.send(message.encode())
+            signed_message = self.__make_message(
+                message_type, message_flag, message_data)
+            signed_message_JSON = signed_message.to_JSON()
+            signed_message_binary = signed_message_JSON.encode()
+            self.s.send(signed_message_binary)
         except KeyboardInterrupt:
             raise
         except:
@@ -446,34 +486,17 @@ class PeerConnection:
         return True
 
     # ------------------------------------------------------------------------------
-    def receive_data(self) -> tuple[str, str]:
+    def receive_data(self) -> SignedMessage:
         # --------------------------------------------------------------------------
-        """Receive a message from a peer connection. Returns (None, None)
+        """Receive a message from a peer connection. Returns an empty SignedMessage
         if there was any error.
         """
         self.__debug('Attempting to receive data...')
 
         try:
-            message = self.s.recv(1024)
-            message_type = message.decode()[:4]
-            message_data = message.decode()[4:]
-            # if not message_type:
-            #     self.__debug('Message type is None')
-            #     return (None, None)
-
-            # len_str = self.sd.read(4)
-            # message_length = int(struct.unpack("!L", len_str)[0])
-            # self.__debug('MESSAGE LENGTH: %s' % message_length)
-
-            # while len(message) != message_length:
-            #     data = self.sd.read(min(2048, message_length - len(message)))
-            #     if not len(data):
-            #         break
-            #     message.join(data)
-            #     self.__debug('MESSAGE: %s' % message)
-
-            # if len(message) != message_length:
-            #     return (None, None)
+            signed_message_JSON = self.s.recv(1024).decode()
+            signed_message = SignedMessage.from_JSON(signed_message_JSON)
+            return signed_message
         except KeyboardInterrupt:
             raise
         except:
