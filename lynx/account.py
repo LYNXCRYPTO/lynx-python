@@ -1,10 +1,7 @@
 # account.py
-
-from hashlib import sha3_256
 from message import Message, SignedMessage
+from hashlib import sha3_256
 from Crypto.PublicKey import RSA
-import ecdsa
-import binascii
 import threading
 
 

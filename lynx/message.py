@@ -39,9 +39,9 @@ class Message:
         # --------------------------------------------------------------------------
         """Checks to see whether a message has a valid type, flag, data, and timestamp"""
 
-        is_valid_type = isinstance(
-            self.type, str) and self.type in ['response', 'request']
-        is_valid_flag = isinstance(self.flag, int)
+        is_valid_type = isinstance(self.type, str) and self.type in [
+            'response', 'request']
+        is_valid_flag = isinstance(self.flag, int) and 0 <= self.flag < 100
         is_valid_data = isinstance(self.data, str)
         is_valid_timestamp = isinstance(self.timestamp, str)
 
@@ -79,6 +79,10 @@ class Message:
     # ------------------------------------------------------------------------------
     def from_JSON(self, JSON):
         # --------------------------------------------------------------------------
+        """"Returns a Message object given a JSON input. If JSON is not formatted 
+        correctly, this method will return None.
+        """
+
         try:
             data = json.loads(JSON)
             if not isinstance(data, dict):
@@ -97,16 +101,18 @@ class Message:
             self.__debug('Unable to convert data in Message object.')
             return None
 
-            # end Message class
+# end Message class
 
 
 class SignedMessage:
-    """Manages any actions made with a signed message"""
+    """Manages any actions made with a signed message. Inherits attributes from
+    the Message class.
+    """
 
     # ------------------------------------------------------------------------------
     def __init__(self, message: Message, signature=None) -> None:
         # --------------------------------------------------------------------------
-        """Init SignedMessage object"""
+        """Initializes a the signature of a SignedMesage"""
 
         self.message = message
         self.signature = signature
@@ -126,10 +132,14 @@ class SignedMessage:
 
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
-    @ classmethod
+    @classmethod
     # ------------------------------------------------------------------------------
     def from_JSON(self, JSON):
         # --------------------------------------------------------------------------
+        """"Returns a SignedMessage object given a JSON input. If JSON is not formatted 
+        correctly, this method will return None.
+        """
+
         try:
             data = json.loads(JSON)
             message = Message.from_JSON(JSON)
@@ -151,4 +161,4 @@ class SignedMessage:
                 'Unable to convert JSON data into SignedMessage object.')
             return None
 
-            # end SignedMessage class
+# end SignedMessage class

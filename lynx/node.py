@@ -125,7 +125,7 @@ class Node:
             if self.node_id != node:
                 try:
                     bootstrap_node_thread = threading.Thread(target=self.connect_and_send, args=[
-                                                             bootstrap_nodes[node][0], bootstrap_nodes[node][1], 'request', 0, 'Peer Request', node])
+                                                             bootstrap_nodes[node][0], bootstrap_nodes[node][1], 'request', 0, 'Peer Request', node], name='Bootstrap Connection Thread (%s)' % node)
                     bootstrap_node_thread.start()
                 except:
                     self.__debug(
@@ -134,13 +134,12 @@ class Node:
     # ------------------------------------------------------------------------------
     def request_peers(self, peer_connection):
         # --------------------------------------------------------------------------
-        print()
         message = Message(type='request', flag=0, data='Peer Request')
         signed_message = self.account.sign_message(message=message)
         peer_connection.send_data(signed_message)
 
     # ------------------------------------------------------------------------------
-    def __handle_peer(self, client_socket) -> None:
+    def __handle_peer(self, client_socket: socket.socket) -> None:
         # --------------------------------------------------------------------------
         """Dispatches messages from the socket connection."""
 
@@ -159,8 +158,6 @@ class Node:
             if message is None:
                 raise ValueError
 
-            if message.message.type:
-                message.message.type = message.message.type.upper()
             if message.message.type not in self.handlers:
                 self.__debug('Not handled: %s: %s' %
                              (message.message.type, message.message.data))
@@ -341,13 +338,13 @@ class Node:
             peer_connection.send_data(message_type, message_flag, message_data)
             self.__debug('Sent %s: %s' % (peer_id, message_type))
 
-            if message_type == 'request':
-                reply = peer_connection.receive_data()
-                while (reply != (None, None)):
-                    message_replies.append(reply)
-                    self.__debug('Got reply %s: %s' & (
-                        peer_id, str(message_replies)))
-                    reply = peer_connection.receive_data()
+            # if message_type == 'request':
+            #     reply = peer_connection.receive_data()
+            #     while (reply is not None):
+            #         message_replies.append(reply)
+            #         self.__debug('Got reply %s: %s' & (
+            #             peer_id, str(message_replies)))
+            #         reply = peer_connection.receive_data()
             peer_connection.close()
         except KeyboardInterrupt:
             raise
@@ -403,7 +400,7 @@ class Node:
                 client_socket.settimeout(None)
 
                 client_thread = threading.Thread(
-                    target=self.__handle_peer, args=[client_socket])
+                    target=self.__handle_peer, args=[client_socket], name='Client Thread (%s)' % client_address)
                 client_thread.start()
             except KeyboardInterrupt:
                 print('KeyboardInterrupt: stopping server listening')
@@ -494,17 +491,15 @@ class PeerConnection:
         self.__debug('Attempting to receive data...')
 
         try:
-            signed_message_JSON = self.s.recv(1024).decode()
-            signed_message = SignedMessage.from_JSON(signed_message_JSON)
+            signed_message_binary = self.s.recv(1024)
+            signed_message = SignedMessage.from_JSON(signed_message_binary)
             return signed_message
         except KeyboardInterrupt:
             raise
         except:
             if self.debug:
                 traceback.print_exc()
-            return (None, None)
-
-        return (message_type, message_data)
+            return None
 
     # ------------------------------------------------------------------------------
     def close(self) -> None:
