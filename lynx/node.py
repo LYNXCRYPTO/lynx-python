@@ -2,11 +2,11 @@
 
 from account import Account
 from message import Message, SignedMessage
+from request import Request
+from response import Response
 from os.path import exists
 import json
-import pickle
 import socket
-import struct
 import threading
 import time
 import traceback
@@ -78,36 +78,36 @@ class Node:
     # ------------------------------------------------------------------------------
     def __init_known_peers(self) -> None:
         # --------------------------------------------------------------------------
-        """Checks to see if known_peers.dat file exist. If exists, peers will be 
+        """Checks to see if known_peers.json file exist. If exists, peers will be 
         added to self.known_peers. If the file is formatted incorrectly, 
         or the file does not exist, then create/re-initialize the file.
         """
 
         try:
-            if exists('../known_peers.dat'):
-                known_peers_file = open('../known_peers.dat', 'r+')
-                data = json.loads(known_peers_file.read())
+            if exists('../known_peers.json'):
+                known_peers_file = open('../known_peers.json', 'r+')
+                data = json.load(known_peers_file)
                 if data and isinstance(data, dict):
                     self.known_peers = data
                     if len(self.known_peers) < 12:
                         self.__debug('Less than 12 known peers (%i).' %
                                      len(self.known_peers))
                 else:
-                    self.__debug('"known_peers.dat" is empty.')
+                    self.__debug('"known_peers.json" is empty.')
             else:
                 raise FileNotFoundError
         except ValueError:
             self.__debug(
-                '"known_peers.dat" is formatted incorrectly or empty, Re-initializing...')
+                '"known_peers.json" is formatted incorrectly or empty, Re-initializing...')
             known_peers_file.seek(0)
             known_peers_file.write(json.dumps(self.known_peers))
             known_peers_file.truncate()
         except FileNotFoundError:
-            self.__debug('"known_peers.dat" not found. Creating new file...')
-            known_peers_file = open('../known_peers.dat', 'w')
+            self.__debug('"known_peers.json" not found. Creating new file...')
+            known_peers_file = open('../known_peers.json', 'w')
             known_peers_file.write(json.dumps(self.known_peers))
         except:
-            self.debug('ERROR: Unable to read/write to "known_peers.dat".')
+            self.debug('ERROR: Unable to read/write to "known_peers.json".')
         finally:
             known_peers_file.close()
 
@@ -121,11 +121,12 @@ class Node:
         # --------------------------------------------------------------------------
         bootstrap_nodes = {
             '1234': ('127.0.0.1', '6969'), }
+
         for node in bootstrap_nodes:
             if self.node_id != node:
                 try:
                     bootstrap_node_thread = threading.Thread(target=self.connect_and_send, args=[
-                                                             bootstrap_nodes[node][0], bootstrap_nodes[node][1], 'request', 0, 'Peer Request', node], name='Bootstrap Connection Thread (%s)' % node)
+                                                             bootstrap_nodes[node][0], bootstrap_nodes[node][1], 'request', 1, 'Peer Request', node], name='Bootstrap Connection Thread (%s)' % node)
                     bootstrap_node_thread.start()
                 except:
                     self.__debug(
@@ -152,23 +153,21 @@ class Node:
             peer_connection = PeerConnection(
                 account=self.account, peer_id=None, host=host, port=port, sock=client_socket, debug=True)
 
-            self.__debug('Attemping to receive data from client')
+            self.__debug('Attemping to receive data from client...')
             message = peer_connection.receive_data()
 
-            if message is None:
+            if message is None or not message.message.validate() or not message.is_signed():
                 raise ValueError
 
-            if message.message.type not in self.handlers:
-                self.__debug('Not handled: %s: %s' %
-                             (message.message.type, message.message.data))
-            else:
-                self.__debug('Handling node message: %s: %s' %
-                             (message.message.type, message.message.data))
-                self.handlers[message.message.type](
-                    peer_connection, message.message.data)
+            if message.message.type.upper() == 'REQUEST':
+                Request(node=self, message=message,
+                        peer_connection=peer_connection)
+            # elif message.message.type.upper() == 'RESPONSE':
+            #     Response(node=self, message=message)
+
         except ValueError:
             self.__debug(
-                'Message receive was not formatted correctly or was of None value.')
+                'Message received was not formatted correctly or was of None value.')
         except KeyboardInterrupt:
             raise
         except:
@@ -291,7 +290,7 @@ class Node:
         return self.max_peers > 0 and len(self.peers) == self.max_peers
 
     # ------------------------------------------------------------------------------
-    def make_server_socket(self, port, backlog=5) -> socket:
+    def make_server_socket(self, port, backlog=5) -> socket.socket:
         # --------------------------------------------------------------------------
         """Constructs and prepares a server socket listening on given port.
 
@@ -338,19 +337,25 @@ class Node:
             peer_connection.send_data(message_type, message_flag, message_data)
             self.__debug('Sent %s: %s' % (peer_id, message_type))
 
-            # if message_type == 'request':
-            #     reply = peer_connection.receive_data()
-            #     while (reply is not None):
-            #         message_replies.append(reply)
-            #         self.__debug('Got reply %s: %s' & (
-            #             peer_id, str(message_replies)))
-            #         reply = peer_connection.receive_data()
+            if message_type == 'request':
+                reply = peer_connection.receive_data()
+                while reply is not None:
+                    message_replies.append(reply)
+                    self.__debug('Got reply %s: %s' %
+                                 (peer_id, str(message_replies)))
+                    self.__debug(reply.message.data)
+                    reply = peer_connection.receive_data()
+
+                for response in message_replies:
+                    print(response.message.data)
+                    Response(self, response)
             peer_connection.close()
         except KeyboardInterrupt:
             raise
         except:
             if self.debug:
-                traceback.print_exc()
+                # traceback.print_exc()
+                self.__debug('')
 
         return message_replies
 
@@ -400,7 +405,7 @@ class Node:
                 client_socket.settimeout(None)
 
                 client_thread = threading.Thread(
-                    target=self.__handle_peer, args=[client_socket], name='Client Thread (%s)' % client_address)
+                    target=self.__handle_peer, args=[client_socket], name=('Client Thread'))
                 client_thread.start()
             except KeyboardInterrupt:
                 print('KeyboardInterrupt: stopping server listening')
@@ -485,20 +490,21 @@ class PeerConnection:
     # ------------------------------------------------------------------------------
     def receive_data(self) -> SignedMessage:
         # --------------------------------------------------------------------------
-        """Receive a message from a peer connection. Returns an empty SignedMessage
-        if there was any error.
+        """Receive a message from a peer connection. Returns an None if there was 
+        any error.
         """
         self.__debug('Attempting to receive data...')
 
         try:
-            signed_message_binary = self.s.recv(1024)
-            signed_message = SignedMessage.from_JSON(signed_message_binary)
+            signed_message_JSON = self.s.recv(1024).decode()
+            signed_message = SignedMessage.from_JSON(signed_message_JSON)
             return signed_message
         except KeyboardInterrupt:
             raise
         except:
             if self.debug:
-                traceback.print_exc()
+                # traceback.print_exc()
+                print()
             return None
 
     # ------------------------------------------------------------------------------
@@ -508,6 +514,7 @@ class PeerConnection:
         after this call.
         """
 
+        self.__debug('Closing peer connection with %s' % self.id)
         self.s.close()
         self.s = None
         self.sd = None

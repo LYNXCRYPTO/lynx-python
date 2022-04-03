@@ -6,11 +6,6 @@ from multiprocessing.sharedctypes import Value
 import threading
 
 
-def display_debug(msg):
-    """Prints a message to the screen with the name of the current thread"""
-    print("[%s] %s" % (str(threading.currentThread().getName()), msg))
-
-
 class Message:
     """Unsigned transactions with information regarding a message's type, flag,
     data, and timestamp.
@@ -31,17 +26,20 @@ class Message:
     # ------------------------------------------------------------------------------
     def __debug(self, message) -> None:
         # --------------------------------------------------------------------------
+        """Prints a message to the screen with the name of the current thread"""
         if self.debug:
-            display_debug(message)
+            print("[%s] %s" %
+                  (str(threading.currentThread().getName()), message))
 
     # ------------------------------------------------------------------------------
+
     def validate(self) -> bool:
         # --------------------------------------------------------------------------
         """Checks to see whether a message has a valid type, flag, data, and timestamp"""
 
         is_valid_type = isinstance(self.type, str) and self.type in [
             'response', 'request']
-        is_valid_flag = isinstance(self.flag, int) and 0 <= self.flag < 100
+        is_valid_flag = isinstance(self.flag, int) and 0 < self.flag < 100
         is_valid_data = isinstance(self.data, str)
         is_valid_timestamp = isinstance(self.timestamp, str)
 
@@ -77,7 +75,7 @@ class Message:
 
     @classmethod
     # ------------------------------------------------------------------------------
-    def from_JSON(self, JSON):
+    def from_JSON(self, JSON: str):
         # --------------------------------------------------------------------------
         """"Returns a Message object given a JSON input. If JSON is not formatted 
         correctly, this method will return None.
@@ -114,8 +112,17 @@ class SignedMessage:
         # --------------------------------------------------------------------------
         """Initializes a the signature of a SignedMesage"""
 
+        self.debug = 1
+
         self.message = message
         self.signature = signature
+
+    # ------------------------------------------------------------------------------
+    def __debug(self, message) -> None:
+        # --------------------------------------------------------------------------
+        if self.debug:
+            print("[%s] %s" %
+                  (str(threading.currentThread().getName()), message))
 
     # ------------------------------------------------------------------------------
     def is_signed(self) -> bool:
@@ -134,7 +141,7 @@ class SignedMessage:
 
     @classmethod
     # ------------------------------------------------------------------------------
-    def from_JSON(self, JSON):
+    def from_JSON(self, JSON: str):
         # --------------------------------------------------------------------------
         """"Returns a SignedMessage object given a JSON input. If JSON is not formatted 
         correctly, this method will return None.
