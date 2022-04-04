@@ -32,8 +32,10 @@ class Request:
         # --------------------------------------------------------------------------
         """"""
 
+        known_peers = self.node.get_known_peers()
+
         self.peer_connection.send_data(
-            message_type='response', message_flag=self.message.message.flag, message_data=self.node.known_peers)
+            message_type='response', message_flag=self.message.message.flag, message_data=known_peers)
         print('Known Peers Sent!')
 
 

@@ -4,6 +4,7 @@ from account import Account
 from message import Message, SignedMessage
 from request import Request
 from response import Response
+from hashlib import sha3_256
 from os.path import exists
 import json
 import socket
@@ -21,7 +22,7 @@ class Node:
     """Implements the core functionality of a node on the Lynx network."""
 
     # ------------------------------------------------------------------------------
-    def __init__(self, account: Account, server_port=6969, node_id=None, server_host=None, max_peers=12,) -> None:
+    def __init__(self, account: Account, server_port=6969, server_host=None, max_peers=12,) -> None:
         # --------------------------------------------------------------------------
         """Initializes a node servent with the ability to index information
         for up to max_nodes number of peers (max_nodes may be set to 0 to allow for an
@@ -40,22 +41,25 @@ class Node:
         else:
             self.__init_server_host()
 
-        if node_id:
-            self.node_id = node_id
-        else:
-            self.node_id = '%s:%d' % (self.server_host, self.server_port)
+        self.node_id = int.from_bytes(
+            sha3_256(str((server_host, int(server_port))).encode()).digest(), byteorder='big')
 
         self.peer_lock = threading.Lock()
 
         self.peers = {}        # node_id => (host, port) mapping
-        self.known_peers = {}
-
-        self.__init_known_peers()
+        if not self.is_known_peers_valid():
+            self.__init_known_peers()
 
         self.handlers = {}
         self.router = None
 
         self.shutdown = False  # condition used to stop server listen
+
+    # ------------------------------------------------------------------------------
+    def __debug(self, message) -> None:
+        # --------------------------------------------------------------------------
+        if self.debug:
+            display_debug(message)
 
     # ------------------------------------------------------------------------------
     def __init_server_host(self) -> None:
@@ -70,13 +74,32 @@ class Node:
         server_socket.close()
 
     # ------------------------------------------------------------------------------
-    def __debug(self, message) -> None:
+    def __init_known_peers(self, unknown_peers={}) -> None:
         # --------------------------------------------------------------------------
-        if self.debug:
-            display_debug(message)
+        """"""
+
+        try:
+            if exists('../known_peers.json'):
+                known_peers_file = open('../known_peers.json', 'r+')
+                data = json.load(known_peers_file)
+                if not isinstance(data, dict):
+                    raise ValueError
+            else:
+                raise FileNotFoundError
+        except ValueError:
+            known_peers_file.seek(0)
+            known_peers_file.write(json.dumps(unknown_peers))
+            known_peers_file.truncate()
+        except FileNotFoundError:
+            known_peers_file = open('../known_peers.json', 'w')
+            known_peers_file.write(json.dumps(unknown_peers))
+        except:
+            self.__debug('Unable to initialize "known_peers.json".')
+        finally:
+            known_peers_file.close()
 
     # ------------------------------------------------------------------------------
-    def __init_known_peers(self) -> None:
+    def is_known_peers_valid(self) -> bool:
         # --------------------------------------------------------------------------
         """Checks to see if known_peers.json file exist. If exists, peers will be 
         added to self.known_peers. If the file is formatted incorrectly, 
@@ -88,10 +111,9 @@ class Node:
                 known_peers_file = open('../known_peers.json', 'r+')
                 data = json.load(known_peers_file)
                 if data and isinstance(data, dict):
-                    self.known_peers = data
-                    if len(self.known_peers) < 12:
+                    if len(data) < 12:
                         self.__debug('Less than 12 known peers (%i).' %
-                                     len(self.known_peers))
+                                     len(data))
                 else:
                     self.__debug('"known_peers.json" is empty.')
             else:
@@ -99,28 +121,25 @@ class Node:
         except ValueError:
             self.__debug(
                 '"known_peers.json" is formatted incorrectly or empty, Re-initializing...')
-            known_peers_file.seek(0)
-            known_peers_file.write(json.dumps(self.known_peers))
-            known_peers_file.truncate()
+            return False
         except FileNotFoundError:
             self.__debug('"known_peers.json" not found. Creating new file...')
-            known_peers_file = open('../known_peers.json', 'w')
-            known_peers_file.write(json.dumps(self.known_peers))
+            return False
         except:
             self.debug('ERROR: Unable to read/write to "known_peers.json".')
+            return False
         finally:
             known_peers_file.close()
 
-    # ------------------------------------------------------------------------------
-    def discover_peers(self) -> None:
-        # --------------------------------------------------------------------------
-        self.__debug('Discover_peers() called!')
+        return True
 
     # ------------------------------------------------------------------------------
     def connect_to_bootstrap_nodes(self):
         # --------------------------------------------------------------------------
+        """"""
+
         bootstrap_nodes = {
-            '1234': ('127.0.0.1', '6969'), }
+            '1234': ('10.0.0.59', '6969'), }
 
         for node in bootstrap_nodes:
             if self.node_id != node:
@@ -131,13 +150,6 @@ class Node:
                 except:
                     self.__debug(
                         'Failed to connect to bootstrap node (node_id: %s)' % node)
-
-    # ------------------------------------------------------------------------------
-    def request_peers(self, peer_connection):
-        # --------------------------------------------------------------------------
-        message = Message(type='request', flag=0, data='Peer Request')
-        signed_message = self.account.sign_message(message=message)
-        peer_connection.send_data(signed_message)
 
     # ------------------------------------------------------------------------------
     def __handle_peer(self, client_socket: socket.socket) -> None:
@@ -152,6 +164,14 @@ class Node:
             host, port = client_socket.getpeername()
             peer_connection = PeerConnection(
                 account=self.account, peer_id=None, host=host, port=port, sock=client_socket, debug=True)
+
+            add_peer_thread = threading.Thread(target=self.add_peer, args=[
+                                               host, port], name='Add Peer Thread')
+            add_peer_thread.start()
+
+            add_unknown_peer_thread = threading.Thread(target=self.add_unknown_peer, args=[
+                                                       host, port], name='Add Unknown Peer Thread')
+            add_unknown_peer_thread.start()
 
             self.__debug('Attemping to receive data from client...')
             message = peer_connection.receive_data()
@@ -224,19 +244,61 @@ class Node:
         self.router = router
 
     # ------------------------------------------------------------------------------
-    def add_peer(self, peer_id, host, port) -> bool:
+    def add_peer(self, host, port) -> bool:
         # --------------------------------------------------------------------------
         """Adds a peer name and host:port mapping to the known list of peers."""
 
+        peer_id = int.from_bytes(
+            sha3_256(str((host, int(port))).encode()).digest(), byteorder='big')
         if peer_id not in self.peers and (self.max_peers == 0 or len(self.peers) < self.max_peers):
             self.peers[peer_id] = (host, int(port))
             return True
+
         return False
+
+    # ------------------------------------------------------------------------------
+    def add_unknown_peer(self, host, port) -> bool:
+        # --------------------------------------------------------------------------
+        """"""
+
+        peer_id = int.from_bytes(
+            sha3_256(str((host, int(port))).encode()).digest(), byteorder='big')
+        unknown_peer = {peer_id: (host, int(port))}
+        if self.is_known_peers_valid():
+            with open('../known_peers.json', 'r+') as known_peers_file:
+                data = json.load(known_peers_file)
+                if peer_id not in data:
+                    data.update(unknown_peer)
+                    known_peers_file.seek(0)
+                    known_peers_file.write(json.dumps(data))
+                    known_peers_file.truncate()
+                else:
+                    return False
+            known_peers_file.close()
+        else:
+            self.__init_known_peers(unknown_peers=unknown_peer)
+
+        return True
+
+    # ------------------------------------------------------------------------------
+    def get_known_peers(self) -> dict:
+        # --------------------------------------------------------------------------
+        """"""
+
+        if self.is_known_peers_valid():
+            with open('../known_peers.json', 'r+') as known_peers_file:
+                data = json.load(known_peers_file)
+                known_peers_file.close()
+                return data
+        else:
+            self.__init_known_peers()
+            return {}
 
     # ------------------------------------------------------------------------------
     def get_peer(self, peer_id) -> tuple:
         # --------------------------------------------------------------------------
         """Returns the (host, port) tuple for the given peer name."""
+
         assert(peer_id in self.peers)  # maybe make this just return NULL
         return self.peers[peer_id]
 
@@ -395,7 +457,7 @@ class Node:
         # --------------------------------------------------------------------------
         server_socket = self.make_server_socket(self.server_port)
         server_socket.settimeout(2)
-        self.__debug('Server started: %s (%s:%d)' %
+        self.__debug('Server started with node: %s (%s:%d)' %
                      (self.node_id, self.server_host, self.server_port,))
 
         while not self.shutdown:
