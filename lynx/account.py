@@ -9,6 +9,9 @@ from hdwallet.derivations import BIP44Derivation
 from hdwallet.utils import generate_mnemonic
 from typing import Optional
 from hashlib import sha3_256
+from ecdsa.util import sigencode_der
+from ecdsa.curves import SECP256k1
+from ecdsa.keys import SigningKey
 
 
 def display_debug(msg):
@@ -47,6 +50,7 @@ class Account:
         self.__debug("Public Key: %s" % self.pub_key)
         self.__debug("Address: %s" % bip44_hdwallet.address())
         self.__debug("Private key: %s" % bip44_hdwallet.private_key())
+        self.__debug("Signing key: %s" % bytearray.fromhex(self.priv_key))
         bip44_hdwallet.clean_derivation()
     
 
@@ -76,7 +80,7 @@ class Account:
         message_binary = message_JSON.encode()
         message_hash = int.from_bytes(
             sha3_256(message_binary).digest(), byteorder='big')
-        signature = pow(message_hash, hash(self.pub_key), hash(self.priv_key))
+        signature = pow(message_hash, int(('0x' + self.pub_key), 16), int(('0x' + self.pub_key), 16))
         signed_message = SignedMessage(message=message, signature=signature)
         self.__debug('Signature: %s' % hex(signed_message.signature))
 

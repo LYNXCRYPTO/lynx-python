@@ -10,7 +10,7 @@ import socket
 import threading
 import time
 import traceback
-
+import miniupnpc
 
 def display_debug(msg):
     """Prints a message to the screen with the name of the current thread"""
@@ -120,11 +120,20 @@ class Node:
     def connect_to_bootstrap_nodes(self):
         # --------------------------------------------------------------------------
         bootstrap_nodes = {
-            '1234': ('10.0.0.59', '6969'), }
+            '1234': ('127.0.0.1', '6969'), }
+        upnp = miniupnpc.UPnP()
 
         for node in bootstrap_nodes:
             if self.node_id != node:
                 try:
+                    upnp.discoverdelay = 10
+                    upnp.discover()
+                    upnp.selectigd()
+
+                    port = 43210
+
+                    # addportmapping(external-port, protocol, internal-host, internal-port, description, remote-host)
+                    upnp.addportmapping(port, 'TCP', upnp.lanaddr, port, 'testing', '') 
                     bootstrap_node_thread = threading.Thread(target=self.connect_and_send, args=[
                                                              bootstrap_nodes[node][0], bootstrap_nodes[node][1], 'request', 1, 'Peer Request', node], name='Bootstrap Connection Thread (%s)' % node)
                     bootstrap_node_thread.start()
@@ -342,7 +351,7 @@ class Node:
                 while reply is not None:
                     message_replies.append(reply)
                     self.__debug('Got reply %s: %s' %
-                                 (peer_id, str(message_replies)))
+                                 (peer_id, str(reply)))
                     self.__debug(reply.message.data)
                     reply = peer_connection.receive_data()
 
