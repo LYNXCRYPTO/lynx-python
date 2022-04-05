@@ -4,6 +4,12 @@ from hashlib import sha3_256
 from Crypto.PublicKey import RSA
 import threading
 
+import binascii
+import mnemonic 
+import bip32utils
+import os,bip39
+
+
 
 def display_debug(msg):
     """Prints a message to the screen with the name of the current thread"""
@@ -20,16 +26,25 @@ class Account:
     def __init__(self) -> None:
         # --------------------------------------------------------------------------
         """Generates a 1024-bit RSA key pair made up of a public and private key"""
+        strength_bits = 128
+        entropy = os.urandom(strength_bits // 8)
+        wallet_generator = bip39.Mnemonic('english')
+        mnemonic = wallet_generator.to_mnemonic(entropy)
+        assert wallet_generator.to_entropy(mnemonic) == entropy  # see, bijective! check if the mnemonic is the same as the entropy
 
-        self.debug = 1
+        self.__debug('Mnemonic: %s' % mnemonic)
 
-        self.key_pair = RSA.generate(bits=1024)
-        self.public_key = (self.key_pair.n, self.key_pair.e)  # Key pair (n, e)
+        mobj = mnemonic.Mnemonic("english")
+        seed = mobj.to_seed(mnemonic)
+
+        bip32_root_key_obj = bip32utils.BIP32Key.fromEntropy(seed)
+        bip32_child_key_obj = bip32_root_key_obj.ChildKey(44 + bip32utils.BIP32_HARDEN).ChildKey(0 + bip32utils.BIP32_HARDEN).ChildKey(0 + bip32utils.BIP32_HARDEN).ChildKey(0).ChildKey(0)
+        
         self.__debug('Account Created!')
-        self.__debug('Public Key: (n: %s, e: %s)' %
-                     (hex(self.key_pair.n), hex(self.key_pair.e)))
-        self.__debug('Private Key: (n: %s, d: %s)\n' %
-                     (hex(self.key_pair.n), hex(self.key_pair.d)))
+        self.__debug('Seed Phrase (%s)' % (seed))
+        self.__debug('Public Key: (%s)' % (bip32_root_key_obj.ExtendedKey()))
+        self.__debug('Private Key: (n: %s, d: %s)\n' % (bip32_child_key_obj.ExtendedKey()))
+        self.__debug("Address: %s" % (bip32_child_key_obj.Address()))
 
         self.nonce = 0
         self.balance = 0
