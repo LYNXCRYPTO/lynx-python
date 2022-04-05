@@ -4,6 +4,7 @@ from account import Account
 from message import Message, SignedMessage
 from request import Request
 from response import Response
+from utilities import Utilities
 from hashlib import sha3_256
 from os.path import exists
 import json
@@ -42,13 +43,13 @@ class Node:
             self.__init_server_host()
 
         self.node_id = int.from_bytes(
-            sha3_256(str((server_host, int(server_port))).encode()).digest(), byteorder='big')
+            sha3_256(str((server_host, int(server_port))).encode()).digest(), byteorder='little')
 
         self.peer_lock = threading.Lock()
 
         self.peers = {}        # node_id => (host, port) mapping
-        if not self.is_known_peers_valid():
-            self.__init_known_peers()
+        if not Utilities.is_known_peers_valid():
+            Utilities.__init_known_peers()
 
         self.handlers = {}
         self.router = None
@@ -74,72 +75,12 @@ class Node:
         server_socket.close()
 
     # ------------------------------------------------------------------------------
-    def __init_known_peers(self, unknown_peers={}) -> None:
-        # --------------------------------------------------------------------------
-        """"""
-
-        try:
-            if exists('../known_peers.json'):
-                known_peers_file = open('../known_peers.json', 'r+')
-                data = json.load(known_peers_file)
-                if not isinstance(data, dict):
-                    raise ValueError
-            else:
-                raise FileNotFoundError
-        except ValueError:
-            known_peers_file.seek(0)
-            known_peers_file.write(json.dumps(unknown_peers))
-            known_peers_file.truncate()
-        except FileNotFoundError:
-            known_peers_file = open('../known_peers.json', 'w')
-            known_peers_file.write(json.dumps(unknown_peers))
-        except:
-            self.__debug('Unable to initialize "known_peers.json".')
-        finally:
-            known_peers_file.close()
-
-    # ------------------------------------------------------------------------------
-    def is_known_peers_valid(self) -> bool:
-        # --------------------------------------------------------------------------
-        """Checks to see if known_peers.json file exist. If exists, peers will be 
-        added to self.known_peers. If the file is formatted incorrectly, 
-        or the file does not exist, then create/re-initialize the file.
-        """
-
-        try:
-            if exists('../known_peers.json'):
-                known_peers_file = open('../known_peers.json', 'r+')
-                data = json.load(known_peers_file)
-                if data and isinstance(data, dict):
-                    if len(data) < 12:
-                        self.__debug('Less than 12 known peers (%i).' %
-                                     len(data))
-                else:
-                    self.__debug('"known_peers.json" is empty.')
-            else:
-                raise FileNotFoundError
-        except ValueError:
-            self.__debug(
-                '"known_peers.json" is formatted incorrectly or empty, Re-initializing...')
-            return False
-        except FileNotFoundError:
-            self.__debug('"known_peers.json" not found. Creating new file...')
-            return False
-        except:
-            self.debug('ERROR: Unable to read/write to "known_peers.json".')
-            return False
-        finally:
-            known_peers_file.close()
-
-        return True
-
-    # ------------------------------------------------------------------------------
     def connect_to_bootstrap_nodes(self):
         # --------------------------------------------------------------------------
         """"""
 
         bootstrap_nodes = {
-            '1234': ('10.0.0.59', '6969'), }
+            '1234': ('10.1.3.66', '6969'), }
 
         for node in bootstrap_nodes:
             if self.node_id != node:
@@ -249,7 +190,7 @@ class Node:
         """Adds a peer name and host:port mapping to the known list of peers."""
 
         peer_id = int.from_bytes(
-            sha3_256(str((host, int(port))).encode()).digest(), byteorder='big')
+            sha3_256(str((host, int(port))).encode()).digest(), byteorder='little')
         if peer_id not in self.peers and (self.max_peers == 0 or len(self.peers) < self.max_peers):
             self.peers[peer_id] = (host, int(port))
             return True
@@ -262,7 +203,7 @@ class Node:
         """"""
 
         peer_id = int.from_bytes(
-            sha3_256(str((host, int(port))).encode()).digest(), byteorder='big')
+            sha3_256(str((host, int(port))).encode()).digest(), byteorder='little')
         unknown_peer = {peer_id: (host, int(port))}
         if self.is_known_peers_valid():
             with open('../known_peers.json', 'r+') as known_peers_file:
@@ -276,7 +217,7 @@ class Node:
                     return False
             known_peers_file.close()
         else:
-            self.__init_known_peers(unknown_peers=unknown_peer)
+            Utilities.__init_known_peers(unknown_peers=unknown_peer)
 
         return True
 
@@ -290,9 +231,9 @@ class Node:
                 data = json.load(known_peers_file)
                 known_peers_file.close()
                 return data
-        else:
-            self.__init_known_peers()
-            return {}
+
+        Utilities.__init_known_peers()
+        return {}
 
     # ------------------------------------------------------------------------------
     def get_peer(self, peer_id) -> tuple:
@@ -455,6 +396,8 @@ class Node:
     # ------------------------------------------------------------------------------
     def start_server_listen(self) -> None:
         # --------------------------------------------------------------------------
+        """"""
+
         server_socket = self.make_server_socket(self.server_port)
         server_socket.settimeout(2)
         self.__debug('Server started with node: %s (%s:%d)' %
@@ -492,7 +435,7 @@ class PeerConnection:
     # ------------------------------------------------------------------------------
     def __init__(self, peer_id, host, port, sock=None, account: Account = None, debug=False) -> None:
         # --------------------------------------------------------------------------
-        # any exceptions thrown upwards
+        """Any exceptions thrown upwards"""
 
         self.account = account
 
@@ -584,6 +527,8 @@ class PeerConnection:
     # ------------------------------------------------------------------------------
     def __str__(self) -> str:
         # --------------------------------------------------------------------------
+        """"""
+
         return "|%s|" & id
 
 # end PeerConnection class
