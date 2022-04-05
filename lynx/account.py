@@ -1,8 +1,17 @@
 # account.py
 from message import Message, SignedMessage
-from hashlib import sha3_256
-from Crypto.PublicKey import RSA
 import threading
+
+import binascii
+from hdwallet import BIP44HDWallet
+from hdwallet.cryptocurrencies import EthereumMainnet
+from hdwallet.derivations import BIP44Derivation
+from hdwallet.utils import generate_mnemonic
+from typing import Optional
+from hashlib import sha3_256
+from ecdsa.util import sigencode_der
+from ecdsa.curves import SECP256k1
+from ecdsa.keys import SigningKey
 
 
 def display_debug(msg):
@@ -20,16 +29,34 @@ class Account:
     def __init__(self) -> None:
         # --------------------------------------------------------------------------
         """Generates a 1024-bit RSA key pair made up of a public and private key"""
+        MNEMONIC: str = generate_mnemonic(language="english", strength=128)
+        PASSPHRASE: Optional[str] = None  # "meherett
+        bip44_hdwallet: BIP44HDWallet = BIP44HDWallet(
+            cryptocurrency=EthereumMainnet)
+        bip44_hdwallet.from_mnemonic(
+            mnemonic=MNEMONIC, language="english", passphrase=PASSPHRASE)
+        bip44_hdwallet.clean_derivation()
+        print("Mnemonic:", bip44_hdwallet.mnemonic())
+        print("Base HD Path:  m/44'/60'/0'/0/0")
+        bip44_derivation: BIP44Derivation = BIP44Derivation(
+            cryptocurrency=EthereumMainnet, account=0, change=False, address=0)
+        bip44_hdwallet.from_path(path=bip44_derivation)
 
-        self.debug = 1
+        self.pub_key = bip44_hdwallet.public_key()
+        self.priv_key = bip44_hdwallet.private_key()
 
-        self.key_pair = RSA.generate(bits=1024)
-        self.public_key = (self.key_pair.n, self.key_pair.e)  # Key pair (n, e)
         self.__debug('Account Created!')
-        self.__debug('Public Key: (n: %s, e: %s)' %
-                     (hex(self.key_pair.n), hex(self.key_pair.e)))
-        self.__debug('Private Key: (n: %s, d: %s)\n' %
-                     (hex(self.key_pair.n), hex(self.key_pair.d)))
+        self.__debug('Seed Phrase (%s)' % (MNEMONIC))
+        self.__debug("Path: %s" % bip44_hdwallet.path())
+        self.__debug("Public Key: %s" % self.pub_key)
+        self.__debug("Address: %s" % bip44_hdwallet.address())
+        self.__debug("Private key: %s" % bip44_hdwallet.private_key())
+        self.__debug("Signing key: %s" % bytearray.fromhex(self.priv_key))
+        bip44_hdwallet.clean_derivation()
+
+        # self.__debug('Public Key: (%s)' % (bip32_root_key_obj.ExtendedKey()))
+        # self.__debug('Private Key: (n: %s, d: %s)\n' % (bip32_child_key_obj.ExtendedKey()))
+        # self.__debug("Address: %s" % (bip32_child_key_obj.Address()))
 
         self.nonce = 0
         self.balance = 0
@@ -39,7 +66,7 @@ class Account:
     # ------------------------------------------------------------------------------
     def __debug(self, message) -> None:
         # --------------------------------------------------------------------------
-        if self.debug:
+        if self.__debug:
             display_debug(message)
 
     # ------------------------------------------------------------------------------
@@ -53,7 +80,8 @@ class Account:
         message_binary = message_JSON.encode()
         message_hash = int.from_bytes(
             sha3_256(message_binary).digest(), byteorder='big')
-        signature = pow(message_hash, self.key_pair.d, self.key_pair.n)
+        signature = pow(message_hash, int(('0x' + self.pub_key),
+                        16), int(('0x' + self.pub_key), 16))
         signed_message = SignedMessage(message=message, signature=signature)
         self.__debug('Signature: %s' % hex(signed_message.signature))
 

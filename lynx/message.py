@@ -4,6 +4,7 @@ from datetime import datetime
 import json
 from multiprocessing.sharedctypes import Value
 import threading
+from hashlib import sha3_256
 
 
 class Message:

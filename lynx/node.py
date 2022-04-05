@@ -80,7 +80,7 @@ class Node:
         """"""
 
         bootstrap_nodes = {
-            '1234': ('10.1.3.66', '6969'), }
+            '1234': ('127.0.0.1', '6969'), }
 
         for node in bootstrap_nodes:
             if self.node_id != node:
@@ -205,7 +205,7 @@ class Node:
         peer_id = int.from_bytes(
             sha3_256(str((host, int(port))).encode()).digest(), byteorder='little')
         unknown_peer = {peer_id: (host, int(port))}
-        if self.is_known_peers_valid():
+        if Utilities.is_known_peers_valid():
             with open('../known_peers.json', 'r+') as known_peers_file:
                 data = json.load(known_peers_file)
                 if peer_id not in data:
@@ -226,7 +226,7 @@ class Node:
         # --------------------------------------------------------------------------
         """"""
 
-        if self.is_known_peers_valid():
+        if Utilities.is_known_peers_valid():
             with open('../known_peers.json', 'r+') as known_peers_file:
                 data = json.load(known_peers_file)
                 known_peers_file.close()
@@ -345,7 +345,7 @@ class Node:
                 while reply is not None:
                     message_replies.append(reply)
                     self.__debug('Got reply %s: %s' %
-                                 (peer_id, str(message_replies)))
+                                 (peer_id, str(reply)))
                     self.__debug(reply.message.data)
                     reply = peer_connection.receive_data()
 

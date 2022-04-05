@@ -13,7 +13,7 @@ def main():
     client_thread = threading.Thread(
         target=node.connect_to_bootstrap_nodes, args=[], name=('Client Thread'))
     client_thread.start()
-
+    
 
 if __name__ == "__main__":
     main()
