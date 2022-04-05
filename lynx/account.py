@@ -2,6 +2,7 @@
 from message import Message, SignedMessage
 import threading
 
+import binascii
 from hdwallet import BIP44HDWallet
 from hdwallet.cryptocurrencies import EthereumMainnet
 from hdwallet.derivations import BIP44Derivation
@@ -38,10 +39,12 @@ class Account:
         cryptocurrency=EthereumMainnet, account=0, change=False, address=0
         )
         bip44_hdwallet.from_path(path=bip44_derivation)
+        self.pub_key = bip44_hdwallet.public_key()
+        self.priv_key = bip44_hdwallet.private_key()
         self.__debug('Account Created!')
         self.__debug('Seed Phrase (%s)' % (MNEMONIC))
         self.__debug("Path: %s" % bip44_hdwallet.path())
-        self.__debug("Public Key: %s" % bip44_hdwallet.public_key())
+        self.__debug("Public Key: %s" % self.pub_key)
         self.__debug("Address: %s" % bip44_hdwallet.address())
         self.__debug("Private key: %s" % bip44_hdwallet.private_key())
         bip44_hdwallet.clean_derivation()
@@ -73,7 +76,7 @@ class Account:
         message_binary = message_JSON.encode()
         message_hash = int.from_bytes(
             sha3_256(message_binary).digest(), byteorder='big')
-        signature = pow(message_hash, self.key_pair.d, self.key_pair.n)
+        signature = pow(message_hash, hash(self.pub_key), hash(self.priv_key))
         signed_message = SignedMessage(message=message, signature=signature)
         self.__debug('Signature: %s' % hex(signed_message.signature))
 
