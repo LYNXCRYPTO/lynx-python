@@ -83,7 +83,7 @@ class Node:
         """"""
 
         bootstrap_nodes = {
-            '1234': ('10.0.0.59', '6969'), }
+            '1234': ('127.0.0.1', '6969'), }
 
         for node in bootstrap_nodes:
             if self.node_id != node:
@@ -138,6 +138,7 @@ class Node:
                 raise ValueError
 
             if message.message.type.upper() == 'REQUEST':
+                print(';{}'.format(peer_connection.s.getpeername()))
                 Request(node=self, message=message,
                         peer_connection=peer_connection)
             # elif message.message.type.upper() == 'RESPONSE':
@@ -307,7 +308,7 @@ class Node:
         return self.connect_and_send(host, port, message_type, message_data, peer_id=next_peer_id)
 
     # ------------------------------------------------------------------------------
-    def connect_and_send(self, host, port, message_type, message_flag, message_data, peer_id) -> list:
+    def connect_and_send(self, host, port, message_type: str, message_flag: int, message_data, peer_id) -> list:
         # --------------------------------------------------------------------------
         """Connects and sends a message to the specified host:port. The host's
         reply, if expected, will be returned as a list.
@@ -320,7 +321,6 @@ class Node:
             peer_connection.send_data(message_type, message_flag, message_data)
             self.__debug('Sent %s: %s' % (peer_id, message_type))
 
-            time.sleep(4)
             if message_type == 'request':
                 print('?{}'.format(peer_connection.s.getpeername()))
                 reply = peer_connection.receive_data()

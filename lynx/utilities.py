@@ -38,7 +38,8 @@ class Utilities:
         except:
             self.__debug('Unable to initialize "known_peers.json".')
         finally:
-            known_peers_file.close()
+            if exists('../known_peers.json'):
+                known_peers_file.close()
 
     @classmethod
     # ------------------------------------------------------------------------------
@@ -72,7 +73,8 @@ class Utilities:
             self.__debug('ERROR: Unable to read/write to "known_peers.json".')
             return False
         finally:
-            known_peers_file.close()
+            if exists('../known_peers.json'):
+                known_peers_file.close()
 
         return True
 

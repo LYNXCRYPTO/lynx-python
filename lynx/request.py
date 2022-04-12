@@ -37,6 +37,8 @@ class Request:
 
         known_peers = Utilities.get_known_peers()
         print('!{}'.format(self.peer_connection.s.getpeername()))
+        print(self.message.message.type)
+        print(self.message.message.flag)
         self.peer_connection.send_data(
             message_type='response', message_flag=self.message.message.flag, message_data=known_peers)
         print('Known Peers Sent!')
