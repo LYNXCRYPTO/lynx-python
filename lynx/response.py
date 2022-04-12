@@ -31,6 +31,8 @@ class Response:
 
         if self.message.message.flag == 1:
             self.handle_known_peers_response()
+        if self.message.message.flag == 2:
+            self.handle_transaction_count_response()
 
     # ------------------------------------------------------------------------------
     def handle_known_peers_response(self) -> None:
@@ -39,7 +41,7 @@ class Response:
         in the message.
         """
 
-        if isinstance(self.message.message.data, dict) and self.node.is_known_peers_valid():
+        if isinstance(self.message.message.data, dict) and Utilities.is_known_peers_valid():
             with open('../known_peers.json', 'r+') as known_peers_file:
                 data = json.load(known_peers_file)
                 data.update(self.message.message.data)
@@ -48,7 +50,15 @@ class Response:
                 known_peers_file.truncate()
                 print('"known_peers.json" updated!')
         else:
-            Utilities.__init_known_peers(unknown_peer=data)
+            Utilities.init_known_peers(unknown_peer=data)
 
+    # ------------------------------------------------------------------------------
+    def handle_transaction_count_response(self) -> None:
+        # --------------------------------------------------------------------------
+        """"""
+
+        if isinstance(self.message.message.data, int):
+            if Utilities.get_transaction_count() < self.message.message.data:
+                print("START INITIAL TRANSACTION DOWNLOAD")
 
 # end Request class

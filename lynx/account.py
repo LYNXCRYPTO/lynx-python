@@ -79,7 +79,7 @@ class Account:
         message_JSON = message.to_JSON()
         message_binary = message_JSON.encode()
         message_hash = int.from_bytes(
-            sha3_256(message_binary).digest(), byteorder='big')
+            sha3_256(message_binary).digest(), byteorder='little')
         signature = pow(message_hash, int(('0x' + self.pub_key),
                         16), int(('0x' + self.pub_key), 16))
         signed_message = SignedMessage(message=message, signature=signature)
@@ -97,7 +97,7 @@ class Account:
             message_JSON = signed_message.message.to_JSON()
             message_binary = message_JSON.encode()
             message_hash = int.from_bytes(
-                sha3_256(message_binary).digest(), byteorder='big')
+                sha3_256(message_binary).digest(), byteorder='little')
             hash_from_signature = pow(
                 signed_message.signature, sender_public_key[1], sender_public_key[0])
 

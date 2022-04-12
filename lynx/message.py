@@ -13,7 +13,7 @@ class Message:
     """
 
     # ------------------------------------------------------------------------------
-    def __init__(self, type, flag, data) -> None:
+    def __init__(self, type: str, flag: int, data) -> None:
         # --------------------------------------------------------------------------
         """Initializes a message object, does *not* check if information is None"""
 

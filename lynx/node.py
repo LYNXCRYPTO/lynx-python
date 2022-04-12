@@ -49,7 +49,10 @@ class Node:
 
         self.peers = {}        # node_id => (host, port) mapping
         if not Utilities.is_known_peers_valid():
-            Utilities.__init_known_peers()
+            Utilities.init_known_peers()
+
+        Utilities.init_transactions()
+        # self.initial_transaction_download()
 
         self.handlers = {}
         self.router = None
@@ -80,7 +83,7 @@ class Node:
         """"""
 
         bootstrap_nodes = {
-            '1234': ('127.0.0.1', '6969'), }
+            '1234': ('10.0.0.59', '6969'), }
 
         for node in bootstrap_nodes:
             if self.node_id != node:
@@ -90,7 +93,21 @@ class Node:
                     bootstrap_node_thread.start()
                 except:
                     self.__debug(
-                        'Failed to connect to bootstrap node (node_id: %s)' % node)
+                        'Failed to connect to bootstrap node (node_id: %s).' % node)
+
+    # ------------------------------------------------------------------------------
+    def initial_transaction_download(self):
+        # --------------------------------------------------------------------------
+        """"""
+        self.__debug('Self.peers: %s' % self.peers)
+        for peer in self.peers:
+            try:
+                transaction_download_thread = threading.Thread(target=self.connect_and_send, args=[
+                                                               self.peers[peer][0], self.peers[peer][1], 'request', 2, 'Transaction Count Request', peer], name='Initial Transaction Download Thread (%s)' % peer)
+                transaction_download_thread.start()
+                print('Transaction download started!')
+            except:
+                self.__debug('Failed to request initial transaction download.')
 
     # ------------------------------------------------------------------------------
     def __handle_peer(self, client_socket: socket.socket) -> None:
@@ -110,11 +127,11 @@ class Node:
                                                host, port], name='Add Peer Thread')
             add_peer_thread.start()
 
-            add_unknown_peer_thread = threading.Thread(target=self.add_unknown_peer, args=[
+            add_unknown_peer_thread = threading.Thread(target=Utilities.add_unknown_peer, args=[
                                                        host, port], name='Add Unknown Peer Thread')
             add_unknown_peer_thread.start()
 
-            self.__debug('Attemping to receive data from client...')
+            self.__debug('Attempting to receive data from client...')
             message = peer_connection.receive_data()
 
             if message is None or not message.message.validate() or not message.is_signed():
@@ -193,47 +210,10 @@ class Node:
             sha3_256(str((host, int(port))).encode()).digest(), byteorder='little')
         if peer_id not in self.peers and (self.max_peers == 0 or len(self.peers) < self.max_peers):
             self.peers[peer_id] = (host, int(port))
+            self.__debug('Peer added: (%s)' % peer_id)
             return True
 
         return False
-
-    # ------------------------------------------------------------------------------
-    def add_unknown_peer(self, host, port) -> bool:
-        # --------------------------------------------------------------------------
-        """"""
-
-        peer_id = int.from_bytes(
-            sha3_256(str((host, int(port))).encode()).digest(), byteorder='little')
-        unknown_peer = {peer_id: (host, int(port))}
-        if Utilities.is_known_peers_valid():
-            with open('../known_peers.json', 'r+') as known_peers_file:
-                data = json.load(known_peers_file)
-                if peer_id not in data:
-                    data.update(unknown_peer)
-                    known_peers_file.seek(0)
-                    known_peers_file.write(json.dumps(data))
-                    known_peers_file.truncate()
-                else:
-                    return False
-            known_peers_file.close()
-        else:
-            Utilities.__init_known_peers(unknown_peers=unknown_peer)
-
-        return True
-
-    # ------------------------------------------------------------------------------
-    def get_known_peers(self) -> dict:
-        # --------------------------------------------------------------------------
-        """"""
-
-        if Utilities.is_known_peers_valid():
-            with open('../known_peers.json', 'r+') as known_peers_file:
-                data = json.load(known_peers_file)
-                known_peers_file.close()
-                return data
-
-        Utilities.__init_known_peers()
-        return {}
 
     # ------------------------------------------------------------------------------
     def get_peer(self, peer_id) -> tuple:
@@ -327,10 +307,10 @@ class Node:
         return self.connect_and_send(host, port, message_type, message_data, peer_id=next_peer_id)
 
     # ------------------------------------------------------------------------------
-    def connect_and_send(self, host, port, message_type, message_flag, message_data, peer_id) -> list[tuple[str, str]]:
+    def connect_and_send(self, host, port, message_type, message_flag, message_data, peer_id) -> list:
         # --------------------------------------------------------------------------
         """Connects and sends a message to the specified host:port. The host's
-        reply, if expected, will be returned as a list of tuples.
+        reply, if expected, will be returned as a list.
         """
 
         message_replies = []
@@ -340,25 +320,26 @@ class Node:
             peer_connection.send_data(message_type, message_flag, message_data)
             self.__debug('Sent %s: %s' % (peer_id, message_type))
 
+            time.sleep(4)
             if message_type == 'request':
+                print('?{}'.format(peer_connection.s.getpeername()))
                 reply = peer_connection.receive_data()
                 while reply is not None:
                     message_replies.append(reply)
-                    self.__debug('Got reply %s: %s' %
-                                 (peer_id, str(reply)))
+                    self.__debug('Got reply %s: %s' % (peer_id, str(reply)))
                     self.__debug(reply.message.data)
                     reply = peer_connection.receive_data()
 
                 for response in message_replies:
-                    print(response.message.data)
                     Response(self, response)
             peer_connection.close()
         except KeyboardInterrupt:
             raise
         except:
             if self.debug:
-                # traceback.print_exc()
-                self.__debug('')
+                traceback.print_exc()
+                self.__debug(
+                    'Unable to send message to peer (%s, %s).' % (host, port))
 
         return message_replies
 
@@ -442,7 +423,7 @@ class PeerConnection:
         self.id = peer_id
         self.debug = debug
 
-        if not sock:
+        if sock is None:
             self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.s.connect((host, int(port)))
         else:
@@ -488,6 +469,7 @@ class PeerConnection:
             raise
         except:
             if self.debug:
+                self.__debug('Unable to send data: {}'.format(message_data))
                 traceback.print_exc()
             return False
         return True
