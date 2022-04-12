@@ -44,12 +44,13 @@ class Account:
 
         self.pub_key = bip44_hdwallet.public_key()
         self.priv_key = bip44_hdwallet.private_key()
+        self.address = bip44_hdwallet.address()
 
         self.__debug('Account Created!')
         self.__debug('Seed Phrase (%s)' % (MNEMONIC))
         self.__debug("Path: %s" % bip44_hdwallet.path())
         self.__debug("Public Key: %s" % self.pub_key)
-        self.__debug("Address: %s" % bip44_hdwallet.address())
+        self.__debug("Address: %s" % self.address)
         self.__debug("Private key: %s" % bip44_hdwallet.private_key())
         self.__debug("Signing key: %s" % bytearray.fromhex(self.priv_key))
         bip44_hdwallet.clean_derivation()

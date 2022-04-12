@@ -102,6 +102,8 @@ class Message:
 
 # end Message class
 
+# **********************************************************
+
 
 class SignedMessage:
     """Manages any actions made with a signed message. Inherits attributes from

@@ -5,7 +5,7 @@ import threading
 import time
 
 
-def main():
+def test_client():
     account = Account()
     node = Node(account=account, server_port='6968')
     bootstrap_thread = threading.Thread(
@@ -14,4 +14,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    test_client()
