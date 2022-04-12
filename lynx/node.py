@@ -83,7 +83,7 @@ class Node:
         """"""
 
         bootstrap_nodes = {
-            '1234': ('127.0.0.1', '6969'), }
+            '1234': ('10.0.0.59', '6969'), }
 
         for node in bootstrap_nodes:
             if self.node_id != node:
