@@ -1,2 +1,4 @@
+transactions/
 known_peers.json
-lynx/__pycache__/
+__pycache__/
+ *.pyc
