@@ -6,8 +6,7 @@ import threading
 
 
 def test_server():
-    account = Account()
-    node = Node(account=account)
+    node = Node()
     server_thread = threading.Thread(
         target=node.server.start_server_listen, args=[], name=('Server Thread'))
     server_thread.start()

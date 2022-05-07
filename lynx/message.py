@@ -41,7 +41,7 @@ class Message:
         is_valid_type = isinstance(self.type, str) and self.type in [
             'response', 'request']
         is_valid_flag = isinstance(self.flag, int) and 0 < self.flag < 100
-        is_valid_data = isinstance(self.data, str)
+        is_valid_data = isinstance(self.data, dict)
         is_valid_timestamp = isinstance(self.timestamp, str)
 
         try:
@@ -88,7 +88,7 @@ class Message:
                 raise ValueError
 
             message = Message(
-                type=data['message']['type'], flag=data['message']['flag'], data=data['message']['data'])
+                type=data['type'], flag=data['flag'], data=data['data'])
             return message
         except ValueError:
             self.__debug('Message data is not a "dict".')

@@ -1,5 +1,5 @@
 from account import Account
-from message import Message, SignedMessage
+from message import Message
 import socket
 import traceback
 import threading
@@ -13,11 +13,9 @@ def display_debug(msg):
 class PeerConnection:
 
     # ------------------------------------------------------------------------------
-    def __init__(self, peer_id, host, port, sock=None, account: Account = None, debug=False) -> None:
+    def __init__(self, peer_id, host, port, sock=None, debug=False) -> None:
         # --------------------------------------------------------------------------
         """Any exceptions thrown upwards"""
-
-        self.account = account
 
         self.id = peer_id
         self.debug = debug
@@ -35,7 +33,7 @@ class PeerConnection:
             display_debug(message)
 
     # ------------------------------------------------------------------------------
-    def __make_message(self, message_type, message_flag, message_data) -> SignedMessage:
+    def __make_message(self, message_type, message_flag, message_data) -> Message:
         # --------------------------------------------------------------------------
         """Packs the message into a Message object and then signs it using the 
         provided Account object.
@@ -45,22 +43,21 @@ class PeerConnection:
 
         message = Message(type=message_type,
                           flag=message_flag, data=message_data)
-        signed_message = self.account.sign_message(message=message)
-        return signed_message
+        return message
 
     # ------------------------------------------------------------------------------
-    def send_data(self, message_type, message_flag, message_data) -> bool:
+    def send_data(self, message_type: str, message_flag: int, message_data: dict = None) -> bool:
         # --------------------------------------------------------------------------
         """Send a message through a peer connection. Returns True on success or 
         False if there was an error.
         """
 
         try:
-            signed_message = self.__make_message(
+            message = self.__make_message(
                 message_type, message_flag, message_data)
-            signed_message_JSON = signed_message.to_JSON()
-            signed_message_binary = signed_message_JSON.encode()
-            self.s.send(signed_message_binary)
+            message_JSON = message.to_JSON()
+            message_binary = message_JSON.encode()
+            self.s.send(message_binary)
         except KeyboardInterrupt:
             raise
         except:
@@ -71,7 +68,7 @@ class PeerConnection:
         return True
 
     # ------------------------------------------------------------------------------
-    def receive_data(self) -> SignedMessage:
+    def receive_data(self) -> Message:
         # --------------------------------------------------------------------------
         """Receive a message from a peer connection. Returns an None if there was 
         any error.
@@ -79,9 +76,9 @@ class PeerConnection:
         self.__debug('Attempting to receive data...')
 
         try:
-            signed_message_JSON = self.s.recv(1024).decode()
-            signed_message = SignedMessage.from_JSON(signed_message_JSON)
-            return signed_message
+            message_JSON = self.s.recv(1024).decode()
+            message = Message.from_JSON(message_JSON)
+            return message
         except KeyboardInterrupt:
             raise
         except:

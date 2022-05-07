@@ -6,11 +6,10 @@ import time
 
 
 def test_client():
-    account = Account()
-    node = Node(account=account, server_port='6968')
-    bootstrap_thread = threading.Thread(
-        target=node.connect_to_bootstrap_nodes, args=[], name=('Bootstrap Thread'))
-    bootstrap_thread.start()
+    node = Node(server_port='6968')
+    version_request_thread = threading.Thread(
+        target=node.server.send_address_request, args=['127.0.0.1', '6969'], name='Version Request Thread')
+    version_request_thread.start()
 
 
 if __name__ == "__main__":
