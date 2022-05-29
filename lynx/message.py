@@ -5,6 +5,7 @@ import json
 from multiprocessing.sharedctypes import Value
 import threading
 from hashlib import sha3_256
+import traceback
 
 
 class Message:
@@ -17,8 +18,6 @@ class Message:
         # --------------------------------------------------------------------------
         """Initializes a message object, does *not* check if information is None"""
 
-        self.debug = 1
-
         self.type = type
         self.flag = flag
         self.data = data
@@ -28,9 +27,7 @@ class Message:
     def __debug(self, message) -> None:
         # --------------------------------------------------------------------------
         """Prints a message to the screen with the name of the current thread"""
-        if self.debug:
-            print("[%s] %s" %
-                  (str(threading.currentThread().getName()), message))
+        print(message)
 
     # ------------------------------------------------------------------------------
 
@@ -45,7 +42,7 @@ class Message:
         is_valid_timestamp = isinstance(self.timestamp, str)
 
         try:
-            if not (is_valid_type and is_valid_flag and is_valid_data and is_valid_timestamp):
+            if not (is_valid_type and is_valid_flag and is_valid_timestamp):
                 raise ValueError
         except ValueError:
             if not is_valid_type:
@@ -62,7 +59,6 @@ class Message:
                              type(self.timestamp))
             return False
 
-        self.__debug('Message is valid!')
         return True
 
     # ------------------------------------------------------------------------------
@@ -72,7 +68,8 @@ class Message:
         any function/method in which an encoded message is to be sent.
         """
 
-        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
+        return json.dumps(self, default=lambda o: o.__dict__,
+                          sort_keys=True)
 
     @classmethod
     # ------------------------------------------------------------------------------
@@ -91,13 +88,15 @@ class Message:
                 type=data['type'], flag=data['flag'], data=data['data'])
             return message
         except ValueError:
-            self.__debug('Message data is not a "dict".')
+            self.__debug(self=self, message='Message data is not a "dict".')
             return None
         except KeyError:
-            self.__debug('Message is not formatted correctly.')
+            self.__debug(
+                self=self, message='Message is not formatted correctly.')
             return None
         except:
-            self.__debug('Unable to convert data in Message object.')
+            self.__debug(
+                self=self, message='Unable to convert data in Message object.')
             return None
 
 # end Message class
@@ -115,17 +114,13 @@ class SignedMessage:
         # --------------------------------------------------------------------------
         """Initializes a the signature of a SignedMesage"""
 
-        self.debug = 1
-
         self.message = message
         self.signature = signature
 
     # ------------------------------------------------------------------------------
     def __debug(self, message) -> None:
         # --------------------------------------------------------------------------
-        if self.debug:
-            print("[%s] %s" %
-                  (str(threading.currentThread().getName()), message))
+        print(message)
 
     # ------------------------------------------------------------------------------
     def is_signed(self) -> bool:
@@ -140,7 +135,8 @@ class SignedMessage:
         with any function/method in which an encoded message is to be sent.
         """
 
-        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
+        return json.dumps(self, default=lambda o: o.__dict__,
+                          sort_keys=True)
 
     @classmethod
     # ------------------------------------------------------------------------------
@@ -161,14 +157,14 @@ class SignedMessage:
             return signed_message
         except ValueError:
             if not isinstance(data, dict):
-                self.__debug('Message data is not a "dict".')
+                self.__debug(self, message='Message data is not a "dict".')
             return None
         except KeyError:
-            self.__debug('Message is not formatted correctly.')
+            self.__debug(self, 'Message is not formatted correctly.')
             return None
         except:
             self.__debug(
-                'Unable to convert JSON data into SignedMessage object.')
+                self, 'Unable to convert JSON data into SignedMessage object.')
             return None
 
 # end SignedMessage class

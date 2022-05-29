@@ -43,7 +43,9 @@ class Request:
         # --------------------------------------------------------------------------
         """"""
         if MessageValidation.validate_version_request(message=self.message) and not self.server.max_peers_reached():
-            Peer(peer_info=self.message.data)
+
+            peer = Peer(peer_info=self.message.data)
+            self.server.add_peer(peer)
 
             self.peer_connection.send_data(
                 message_type='response', message_flag=self.message.flag)
@@ -62,9 +64,13 @@ class Request:
                 # self.server.connect_and_send(
                 #     host, port, self.message.type, self.message.flag, self.message.data, self.server.server.peers[peer].nonce)
 
-            known_peers = Peer.get_known_peers().keys()
+            known_peers = [*Peer.get_known_peers()]
+            payload = {'address_count': len(
+                known_peers), 'address_list': known_peers}
+
             self.peer_connection.send_data(
-                self.message.type, self.message.flag, known_peers)
+                'response', self.message.flag, payload)
+            print('Sent address list to (%s)' % peer)
 
     # ------------------------------------------------------------------------------
     def __handle_known_peers_request(self) -> None:

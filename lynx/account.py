@@ -1,7 +1,6 @@
 # account.py
 from message import Message, SignedMessage
 import threading
-
 import binascii
 from hdwallet import BIP44HDWallet
 from hdwallet.cryptocurrencies import EthereumMainnet
@@ -29,6 +28,7 @@ class Account:
     def __init__(self) -> None:
         # --------------------------------------------------------------------------
         """Generates a 1024-bit RSA key pair made up of a public and private key"""
+        # TODO Change from 128 bit strength to 512 bit strength
         MNEMONIC: str = generate_mnemonic(language="english", strength=128)
         PASSPHRASE: Optional[str] = None  # "meherett
         bip44_hdwallet: BIP44HDWallet = BIP44HDWallet(

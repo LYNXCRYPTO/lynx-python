@@ -73,18 +73,20 @@ class PeerConnection:
         """Receive a message from a peer connection. Returns an None if there was 
         any error.
         """
-        self.__debug('Attempting to receive data...')
 
         try:
             message_JSON = self.s.recv(1024).decode()
-            message = Message.from_JSON(message_JSON)
-            return message
+            if message_JSON and len(message_JSON) > 0:
+                message = Message.from_JSON(message_JSON)
+                return message
+
+            return None
         except KeyboardInterrupt:
             raise
         except:
             if self.debug:
                 # traceback.print_exc()
-                print()
+                pass
             return None
 
     # ------------------------------------------------------------------------------
@@ -94,7 +96,6 @@ class PeerConnection:
         after this call.
         """
 
-        self.__debug('Closing peer connection with %s' % self.id)
         self.s.close()
         self.s = None
         self.sd = None

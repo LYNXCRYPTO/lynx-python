@@ -8,7 +8,7 @@ import time
 def test_client():
     node = Node(server_port='6968')
     version_request_thread = threading.Thread(
-        target=node.server.send_address_request, args=['127.0.0.1', '6969'], name='Version Request Thread')
+        target=node.server.send_version_request, args=['127.0.0.1', '6969'], name='Version Request Thread')
     version_request_thread.start()
 
 

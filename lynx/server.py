@@ -1,3 +1,10 @@
+
+from pickle import PROTO
+import uuid
+import socket
+import time
+import threading
+import traceback
 from account import Account
 from peer import Peer
 from peer_connection import PeerConnection
@@ -5,22 +12,16 @@ from request import Request
 from response import Response
 from message import Message
 from constants import PROTOCOL_VERSION, NODE_SERVICES, SUB_VERSION
-import time
-import uuid
 from utilities import Utilities
 from hashlib import sha3_256
-import socket
-import threading
-import traceback
 
 
 def display_debug(msg):
     """Prints a message to the screen with the name of the current thread"""
-    print("[%s] %s" % (str(threading.currentThread().getName()), msg))
+    print(msg)
 
 
 class Server:
-
     # ------------------------------------------------------------------------------
     def __init__(self, nonce: str, port=6969, host=None, max_peers=12) -> None:
         # --------------------------------------------------------------------------
@@ -44,20 +45,24 @@ class Server:
 
         self.peer_lock = threading.Lock()
 
-        test_peer = Peer(peer_info={'version': PROTOCOL_VERSION,
-                                    'services': NODE_SERVICES,
-                                    'timestamp': time.time(),
-                                    'nonce': uuid.uuid4().hex + uuid.uuid1().hex,
-                                    'address_from': '{}:{}'.format('127.0.0.1', '6968'),
-                                    'address_receive': '{}:{}'.format('127.0.0.1', '6969'),
-                                    'user_agent': SUB_VERSION,
-                                    'start_accounts_known': 10,
-                                    'relay': False,
-                                    })
+        test_peer = Peer(version=PROTOCOL_VERSION,
+                         services=NODE_SERVICES,
+                         timestamp=str(time.time()),
+                         nonce=uuid.uuid4().hex + uuid.uuid1().hex,
+                         address='{}:{}'.format('127.0.0.1', '6968'),
+                         sub_version=SUB_VERSION,
+                         start_accounts_count=10,
+                         relay=False,
+                         )
         # List of Peer objects
-        self.peers = {'{}:{}'.format('127.0.0.1', '6968'): test_peer}
+        self.peers = {'{}:{}'.format('127.0.0.1', '6968'): test_peer.to_JSON}
 
         self.shutdown = False  # condition used to stop server listen
+
+        self.__debug('Configuring Port...')
+        self.__debug('Server Configured!')
+        self.__debug('Server Information:\n\tHost: {} (IPV4)\n\tPort: {}\n\tNode ID (Nonce): {}\n'.format(
+            self.host, self.port, self.nonce))
 
     # ------------------------------------------------------------------------------
     def __init_server_host(self) -> None:
@@ -65,10 +70,10 @@ class Server:
         """Attempts to connect to an Internet host like Google to determine
         the local machine's IP address.
         """
+        print("Configuring IP Address...")
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         server_socket.connect(('8.8.8.8', 80))
         self.host = server_socket.getsockname()[0]
-        self.__debug('SERVER HOST: ' + self.host)
         server_socket.close()
 
     # ------------------------------------------------------------------------------
@@ -78,18 +83,18 @@ class Server:
 
         version_message = {'version': PROTOCOL_VERSION,
                            'services': NODE_SERVICES,
-                           'timestamp': time.time(),
+                           'timestamp': str(time.time()),
                            'nonce': self.nonce,
                            'address_from': '{}:{}'.format(self.host, self.port),
                            'address_receive': '{}:{}'.format(host, port),
-                           'user_agent': SUB_VERSION,
-                           'start_accounts_known': Utilities.get_transaction_count(),
+                           'sub_version': SUB_VERSION,
+                           'start_accounts_count': Utilities.get_transaction_count(),
                            'relay': False,
                            }
 
         try:
             version_message_thread = threading.Thread(target=self.connect_and_send, args=[
-                host, port, 'request', 1, version_message, None], name='Version Message Sending Thread')
+                host, port, 'request', 1, version_message, '{}:{}'.format(host, port)], name='Version Message Sending Thread')
             version_message_thread.start()
         except:
             self.__debug('Failed to send version message. Retrying...')
@@ -104,7 +109,25 @@ class Server:
 
         try:
             address_message_thread = threading.Thread(target=self.connect_and_send, args=[
-                host, port, 'request', 2, payload, None], name='Address Message Sending Thread')
+                host, port, 'request', 2, payload, '{}:{}'.format(host, port)], name='Address Message Sending Thread')
+            address_message_thread.start()
+        except:
+            self.__debug('Failed to send version message. Retrying...')
+
+    # ------------------------------------------------------------------------------
+    def send_get_account_request(self, host, port):
+        # --------------------------------------------------------------------------
+        """"""
+
+        payload = {'version': PROTOCOL_VERSION,
+                   'account': '0x69420',
+                   'hash_count': 0,
+                   'state_locator_hashes': '1234',
+                   'hash_stop': 0, }
+
+        try:
+            address_message_thread = threading.Thread(target=self.connect_and_send, args=[
+                host, port, 'request', 3, payload, '{}:{}'.format(host, port)], name='Address Message Sending Thread')
             address_message_thread.start()
         except:
             self.__debug('Failed to send version message. Retrying...')
@@ -124,15 +147,14 @@ class Server:
                 self.__debug('Failed to request heartbeat from %s.' % peer)
 
     # ------------------------------------------------------------------------------
-    def add_peer(self, host, port) -> bool:
+    def add_peer(self, peer: Peer) -> bool:
         # --------------------------------------------------------------------------
         """Adds a peer name and host:port mapping to the known list of peers."""
 
-        peer_id = int.from_bytes(
-            sha3_256(str((host, int(port))).encode()).digest(), byteorder='little')
+        peer_id = '{}:{}'.format(peer.host, peer.port)
         if peer_id not in self.peers and (self.max_peers == 0 or len(self.peers) < self.max_peers):
             self.peer_lock.acquire()
-            self.peers[peer_id] = (host, int(port))
+            self.peers[peer_id] = peer
             self.peer_lock.release()
             self.__debug('Peer added: (%s)' % peer_id)
             return True
@@ -161,7 +183,7 @@ class Server:
     def insert_peer_at(self, index, peer_id, host, port) -> None:
         # --------------------------------------------------------------------------
         """Inserts a peer's information at a specific position in the list of peers.
-        The functions insert_peer_at, get_peer_at, and remove_peer_at should not be 
+        The functions insert_peer_at, get_peer_at, and remove_peer_at should not be
         used concurrently with add_peer, get_peer, and/or remove_peer.
         """
 
@@ -177,11 +199,11 @@ class Server:
             return None
         return self.peers[index]
 
-    # ------------------------------------------------------------------------------
-    def remove_peer_at(self, index) -> None:
-        # --------------------------------------------------------------------------
+    # # ------------------------------------------------------------------------------
+    # def remove_peer_at(self, index) -> None:
+    #     # --------------------------------------------------------------------------
 
-        self.remove_peer(self, self.peers[index])
+    #     self.remove_peer(self, self.peers[index])
 
     # ------------------------------------------------------------------------------
     def number_of_peers(self) -> int:
@@ -219,34 +241,27 @@ class Server:
         # --------------------------------------------------------------------------
         """Dispatches messages from the socket connection."""
 
-        self.__debug('New Thread Created: ' +
-                     str(threading.currentThread().getName()))
-        self.__debug('Connected ' + str(client_socket.getpeername()))
+        self.__debug('********************\n')
+        self.__debug('Incoming Peer Connection Detected!')
 
         try:
             host, port = client_socket.getpeername()
+            self.__debug(
+                'Peer Connection Information:\n\tHost: {} (IPV4)\n\tPort: {}\n'.format(host, port))
             peer_connection = PeerConnection(
                 peer_id=None, host=host, port=port, sock=client_socket, debug=True)
 
-            # add_peer_thread = threading.Thread(target=self.add_peer, args=[
-            #                                    host, port], name='Add Peer Thread')
-            # add_peer_thread.start()
-
-            # add_unknown_peer_thread = threading.Thread(target=Utilities.add_unknown_peer, args=[
-            #                                            host, port], name='Add Unknown Peer Thread')
-            # add_unknown_peer_thread.start()
-
-            self.__debug('Attempting to receive data from client...')
             message = peer_connection.receive_data()
 
-            print('Is message of None value: {}'.format(message is None))
             if message is None or not message.validate():
-                print(message)
                 raise ValueError
 
-            print('Message Type is {}'.format(message.type.upper()))
-            if message.type.upper() == 'REQUEST':
-                print('{}'.format(peer_connection.s.getpeername()))
+            if message.type.lower() == 'request':
+                self.__debug(
+                    'Received request from ({}:{})'.format(host, port))
+                self.__debug('Request Information:\n\tType: {}\n\tFlag: {}\n\tData: {}\n'.format(
+                    message.type, message.flag, message.data))
+
                 Request(server=self, message=message,
                         peer_connection=peer_connection)
             # elif message.message.type.upper() == 'RESPONSE':
@@ -262,7 +277,8 @@ class Server:
                 traceback.print_exc()
                 self.__debug('Failed to handle message')
 
-        self.__debug('Disconnecting ' + str(client_socket.getpeername()))
+        self.__debug('Disconnecting from ' + str(client_socket.getpeername()))
+        self.__debug('\n********************')
         peer_connection.close()
 
     # ------------------------------------------------------------------------------
@@ -277,26 +293,31 @@ class Server:
             peer_connection = PeerConnection(
                 peer_id=peer_id, host=host, port=port, debug=self.debug)
             peer_connection.send_data(message_type, message_flag, message_data)
-            self.__debug('Sent %s: %s' % (peer_id, message_type))
-            self.__debug(message_data)
+
+            self.__debug('Sent (%s:%s) a message' % (host, port))
+            self.__debug('Message Information:\n\tType: {}\n\tFlag: {}\n\tData: {}\n'.format(
+                message_type, message_flag, message_data))
 
             if message_type == 'request':
-                print('?{}'.format(peer_connection.s.getpeername()))
+                self.__debug(
+                    'Attempting to receive a response from %s...' % peer_id)
                 reply: Message = peer_connection.receive_data()
                 while reply is not None:
                     message_replies.append(reply)
-                    self.__debug('Got reply %s: %s' % (peer_id, str(reply)))
-                    self.__debug(reply.data)
+                    self.__debug('Received a reply!')
                     reply = peer_connection.receive_data()
 
-                for reply in message_replies:
-                    if reply.type == 'request':
-                        Request(self, reply, peer_connection)
-                    elif reply.type == 'response':
-                        Response(self, reply, peer_connection)
+                for i in range(len(message_replies)):
+                    self.__debug('Reply #{} Contents:\n\tType: {}\n\tFlag: {}\n\tData: {}\n'.format(
+                        i + 1, message_replies[i].type, message_replies[i].flag, message_replies[i].data))
+
+                    if message_replies[i].type == 'request':
+                        Request(self, message_replies[i], peer_connection)
+                    elif message_replies[i].type == 'response':
+                        Response(self, message_replies[i], peer_connection)
                     else:
                         self.__debug(
-                            'Unable to handle message type of "{}"'.format(reply.type))
+                            'Unable to handle message type of "{}"'.format(message_replies[i].type))
             peer_connection.close()
         except KeyboardInterrupt:
             raise
@@ -315,12 +336,13 @@ class Server:
 
         server_socket = self.make_server_socket(self.port)
         server_socket.settimeout(2)
-        self.__debug('Server started with node: %s (%s:%d)' %
-                     (self.nonce, self.host, self.port,))
+
+        self.__debug(
+            'Server Has Started Listening For Incoming Connections...')
 
         while not self.shutdown:
             try:
-                self.__debug('Listening for connections...')
+                self.__debug('')
                 client_socket, client_address = server_socket.accept()
                 client_socket.settimeout(None)
 
@@ -336,7 +358,7 @@ class Server:
                     # traceback.print_exc()
                     continue
 
-        self.__debug('Main loop exiting')
+        self.__debug('Stopping server listen')
         server_socket.close()
 
     # ------------------------------------------------------------------------------

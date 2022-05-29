@@ -2,6 +2,7 @@ from __future__ import annotations
 from peer import Peer
 from message import Message
 from message_validation import MessageValidation
+import threading
 from utilities import Utilities
 import json
 from typing import TYPE_CHECKING
@@ -51,45 +52,26 @@ class Response:
         """
 
         if MessageValidation.validate_version_request(message=self.message):
-            print("You've have been added as a peer.")
             if not self.server.max_peers_reached():
                 host, port = self.peer_connection.s.getpeername()
 
-                self.server.send_address_request(host, port)
+                # TODO self.server.send_address_request(host, port)
         else:
-            print('Unable to handle version response')
+            print('Unable to handle address request')
 
     # ------------------------------------------------------------------------------
     def __handle_address_response(self) -> None:
         # --------------------------------------------------------------------------
         """"""
-        # Work on this next!!!!!!!!!!!!!
-        if MessageValidateion.validate_address_response(message=self.message):
-            print("You've have been added as a peer.")
+
+        if MessageValidation.validate_address_response(message=self.message):
             if not self.server.max_peers_reached():
                 host, port = self.peer_connection.s.getpeername()
-
-                self.server.send_address_request(host, port)
+                for peer in self.message.data['address_list']:
+                    if peer not in self.server.peers and peer != '{}:{}'.format(self.server.host, self.server.host):
+                        self.server.send_version_request(host, port)
         else:
-            print('Unable to handle version response')
-
-    # ------------------------------------------------------------------------------
-    def __handle_known_peers_response(self) -> None:
-        # --------------------------------------------------------------------------
-        """Updates a node's "known_peers.json" file with the information received
-        in the message.
-        """
-
-        if isinstance(self.message.data, dict) and Peer.is_peers_file_valid():
-            with open('../known_peers.json', 'r+') as known_peers_file:
-                data = json.load(known_peers_file)
-                data.update(self.message.data)
-                known_peers_file.seek(0)
-                known_peers_file.write(json.dumps(data))
-                known_peers_file.truncate()
-                print('"known_peers.json" updated!')
-        else:
-            Peer.init_peers_file(unknown_peer=data)
+            print('Unable to handle address response')
 
     # ------------------------------------------------------------------------------
     def __handle_transaction_count_response(self) -> None:

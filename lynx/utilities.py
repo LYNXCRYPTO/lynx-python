@@ -15,17 +15,18 @@ class Utilities:
     def __debug(self, msg) -> None:
         # --------------------------------------------------------------------------
         """Prints a message to the screen with the name of the current thread"""
-        print("[%s] %s" % (str(threading.currentThread().getName()), msg))
+        print(msg)
 
     @classmethod
     # ------------------------------------------------------------------------------
-    def init_transactions(self) -> None:
+    def init_accounts(self) -> None:
         # --------------------------------------------------------------------------
         """Creates a transactions directory if it does not already exist."""
 
         try:
-            if not exists('../transactions/'):
-                makedirs('../transactions/')
+            if not exists('../accounts/'):
+                self.__debug('Initializing Accounts Folder...')
+                makedirs('../accounts/')
         except:
             self.__debug('Unable to initialize transactions folder.')
 
@@ -38,8 +39,8 @@ class Utilities:
         """
 
         try:
-            if exists('../transactions/'):
-                transaction_list = listdir('../transactions/')
+            if exists('../accounts/'):
+                transaction_list = listdir('../accounts/')
                 transaction_count = len(transaction_list)
                 return transaction_count
         except:
