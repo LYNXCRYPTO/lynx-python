@@ -7,7 +7,7 @@ import threading
 
 def display_debug(msg):
     """Prints a message to the screen with the name of the current thread"""
-    print("[%s] %s" % (str(threading.currentThread().getName()), msg))
+    print(msg)
 
 
 class PeerConnection:
@@ -53,11 +53,16 @@ class PeerConnection:
         """
 
         try:
+            host, port = self.s.getpeername()
+
             message = self.__make_message(
                 message_type, message_flag, message_data)
             message_JSON = message.to_JSON()
             message_binary = message_JSON.encode()
             self.s.send(message_binary)
+            self.__debug('Sent (%s:%s) a message' % (host, port))
+            self.__debug('Message Information:\n\tType: {}\n\tFlag: {}\n\tData: {}\n'.format(
+                message_type, message_flag, message_data))
         except KeyboardInterrupt:
             raise
         except:

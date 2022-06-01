@@ -39,7 +39,7 @@ class Node:
             self.__debug('Initializing Known Peers File...')
             Peer.init_peers_file()
 
-        self.__debug('Configuring Accounts Folder...')
+        self.__debug('Configuring Accounts Directory...')
         Utilities.init_accounts()
 
         self.__debug('\nConfiguring Server...')

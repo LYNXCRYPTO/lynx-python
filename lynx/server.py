@@ -1,5 +1,3 @@
-
-from pickle import PROTO
 import uuid
 import socket
 import time
@@ -93,11 +91,11 @@ class Server:
                            }
 
         try:
-            version_message_thread = threading.Thread(target=self.connect_and_send, args=[
-                host, port, 'request', 1, version_message, '{}:{}'.format(host, port)], name='Version Message Sending Thread')
-            version_message_thread.start()
+            version_request_thread = threading.Thread(target=self.connect_and_send, args=[
+                host, port, 'request', 1, version_message, '{}:{}'.format(host, port)], name='Version Request Thread')
+            version_request_thread.start()
         except:
-            self.__debug('Failed to send version message. Retrying...')
+            self.__debug('Failed to send version request. Retrying...')
 
     # ------------------------------------------------------------------------------
     def send_address_request(self, host, port):
@@ -108,29 +106,49 @@ class Server:
                    'address_list': ['{}:{}'.format(self.host, self.port)]}
 
         try:
-            address_message_thread = threading.Thread(target=self.connect_and_send, args=[
-                host, port, 'request', 2, payload, '{}:{}'.format(host, port)], name='Address Message Sending Thread')
-            address_message_thread.start()
+            address_request_thread = threading.Thread(target=self.connect_and_send, args=[
+                host, port, 'request', 2, payload, '{}:{}'.format(host, port)], name='Address Request Thread')
+            address_request_thread.start()
         except:
-            self.__debug('Failed to send version message. Retrying...')
+            self.__debug('Failed to send address request. Retrying...')
 
     # ------------------------------------------------------------------------------
-    def send_get_account_request(self, host, port):
+    def send_account_request(self, host, port):
         # --------------------------------------------------------------------------
         """"""
 
         payload = {'version': PROTOCOL_VERSION,
                    'account': '0x69420',
-                   'hash_count': 0,
-                   'state_locator_hashes': '1234',
-                   'hash_stop': 0, }
+                   'best_state': '0x4206996420'}
 
         try:
-            address_message_thread = threading.Thread(target=self.connect_and_send, args=[
-                host, port, 'request', 3, payload, '{}:{}'.format(host, port)], name='Address Message Sending Thread')
-            address_message_thread.start()
+            account_request_thread = threading.Thread(target=self.connect_and_send, args=[
+                host, port, 'request', 3, payload, '{}:{}'.format(host, port)], name='Account Request Thread')
+            account_request_thread.start()
         except:
-            self.__debug('Failed to send version message. Retrying...')
+            self.__debug('Failed to send account request. Retrying...')
+
+    # ------------------------------------------------------------------------------
+    def send_data_request(self, host, port, inventory: list):
+        # --------------------------------------------------------------------------
+        """"""
+
+        try:
+            if len(inventory) == 0 or inventory is None:
+                raise ValueError
+            else:
+                # if (inventory)
+
+                payload = {'inventory_count': len(
+                    inventory), 'inventory': inventory}
+
+                account_request_thread = threading.Thread(target=self.connect_and_send, args=[
+                    host, port, 'request', 4, payload, '{}:{}'.format(host, port)], name='Data Request Thread')
+                account_request_thread.start()
+        except ValueError:
+            self.__debug('Data requested what empty or None')
+        except:
+            self.__debug('Failed to send data request. Retrying...')
 
     # ------------------------------------------------------------------------------
     def send_heartbeat_request(self):
@@ -268,6 +286,7 @@ class Server:
             #     Response(node=self, message=message)
 
         except ValueError:
+            traceback.print_exc()
             self.__debug(
                 'Message received was not formatted correctly or was of None value.')
         except KeyboardInterrupt:
@@ -294,13 +313,9 @@ class Server:
                 peer_id=peer_id, host=host, port=port, debug=self.debug)
             peer_connection.send_data(message_type, message_flag, message_data)
 
-            self.__debug('Sent (%s:%s) a message' % (host, port))
-            self.__debug('Message Information:\n\tType: {}\n\tFlag: {}\n\tData: {}\n'.format(
-                message_type, message_flag, message_data))
-
             if message_type == 'request':
                 self.__debug(
-                    'Attempting to receive a response from %s...' % peer_id)
+                    'Attempting to receive a response from (%s)...' % peer_id)
                 reply: Message = peer_connection.receive_data()
                 while reply is not None:
                     message_replies.append(reply)

@@ -39,8 +39,10 @@ class Response:
         elif self.message.flag == 2:
             self.__handle_address_response()
         elif self.message.flag == 3:
-            self.__handle_transaction_count_response()
+            self.__handle_account_response()
         elif self.message.flag == 4:
+            self.__handle_data_response()
+        elif self.message.flag == 5:
             self.__handle_heartbeat_response()
 
     # ------------------------------------------------------------------------------
@@ -74,13 +76,36 @@ class Response:
             print('Unable to handle address response')
 
     # ------------------------------------------------------------------------------
-    def __handle_transaction_count_response(self) -> None:
+    def __handle_account_response(self) -> None:
         # --------------------------------------------------------------------------
         """"""
 
-        if isinstance(self.message.data, int):
-            if Utilities.get_transaction_count() < self.message.data:
-                print("START INITIAL TRANSACTION DOWNLOAD")
+        if MessageValidation.validate_account_response(message=self.message):
+            inventory = {self.message.data['inventory'][i]: False for i in range(
+                0, len(self.message.data['inventory']), 2)}
+            # MAKE SELF.SERVER.SEND_DATA_REQUEST RECURSIVELY CALLED
+            # TODO Get This Informtion From Peer Object
+            max_states_in_transit_per_peer = 10
+            batch_count = 0
+            current_index = 0
+            end_index = max_states_in_transit_per_peer
+
+            while len(inventory) > 0:
+                if end_index <= len(inventory) - 1:
+                    inventory_batch = self.message.data['inventory'][current_index:end_index]
+                else:
+                    inventory_batch = self.message.data['inventory'][current_index:]
+
+                current_index = end_index
+                end_index += max_states_in_transit_per_peer
+                batch_count += 1
+                peers = [*self.server.peers]
+
+     # ------------------------------------------------------------------------------
+    def __handle_data_response(self) -> None:
+        # --------------------------------------------------------------------------
+        """"""
+        pass
 
     # ------------------------------------------------------------------------------
     def __handle_heartbeat_response(self) -> None:

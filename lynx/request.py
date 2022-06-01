@@ -1,10 +1,12 @@
 from __future__ import annotations
+from typing import TYPE_CHECKING
+import json
+from os import listdir
+from os.path import exists
+from state import State
 from peer import Peer
 from message import Message, SignedMessage
-from utilities import Utilities
 from message_validation import MessageValidation
-from constants import *
-from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from peer_connection import PeerConnection
     from server import Server
@@ -34,8 +36,10 @@ class Request:
         elif self.message.flag == 2:
             self.__handle_address_request()
         elif self.message.flag == 3:
-            self.__handle_transaction_count_request()
+            self.__handle_account_request()
         elif self.message.flag == 4:
+            self.__handle_data_request()
+        elif self.message.flag == 5:
             self.__handle_heartbeat_request()
 
     # ------------------------------------------------------------------------------
@@ -59,10 +63,10 @@ class Request:
         """"""
 
         if MessageValidation.validate_address_request(message=self.message):
-            for peer in self.server.peers:
-                host, port = peer.split(':')
-                # self.server.connect_and_send(
-                #     host, port, self.message.type, self.message.flag, self.message.data, self.server.server.peers[peer].nonce)
+            # for peer in self.server.peers:
+            #     host, port = peer.split(':')
+            # self.server.connect_and_send(
+            #     host, port, self.message.type, self.message.flag, self.message.data, self.server.server.peers[peer].nonce)
 
             known_peers = [*Peer.get_known_peers()]
             payload = {'address_count': len(
@@ -70,31 +74,46 @@ class Request:
 
             self.peer_connection.send_data(
                 'response', self.message.flag, payload)
-            print('Sent address list to (%s)' % peer)
 
     # ------------------------------------------------------------------------------
-    def __handle_known_peers_request(self) -> None:
+    def __handle_account_request(self) -> None:
         # --------------------------------------------------------------------------
         """"""
 
-        known_peers = Peer.get_known_peers()
-        print('!{}'.format(self.peer_connection.s.getpeername()))
-        print(self.message.type)
-        print(self.message.flag)
-        self.peer_connection.send_data(
-            message_type='response', message_flag=self.message.flag, message_data=known_peers)
-        print('Known Peers Sent!')
+        if MessageValidation.validate_account_request(message=self.message):
+
+            account_path = '../accounts/{}/'.format(
+                self.message.data['account'])
+            state_path = account_path + 'states/'
+
+            if exists(account_path) and exists(state_path):
+                account_hashes = []
+                count = 1
+                best_state_found = False
+                for file in listdir(state_path):
+                    with open(state_path + file, 'r+') as state_file:
+                        state = State.from_File(state_file)
+                        if state.current_reference == self.message.data['best_state']:
+                            best_state_found = True
+                        elif best_state_found:
+                            account_hashes.append(state.current_reference)
+                        if count > 500:
+                            break
+                        state_file.close()
+                        count += 1
+
+                payload = {'count': len(account_hashes),
+                           'inventory': account_hashes, }
+            else:
+                payload = {'count': 0, 'inventory': [], }
+
+            self.peer_connection.send_data(
+                'response', self.message.flag, payload)
 
     # ------------------------------------------------------------------------------
-    def __handle_transaction_count_request(self) -> None:
+    def __handle_data_request(self) -> None:
         # --------------------------------------------------------------------------
         """"""
-
-        transaction_count = Utilities.get_transaction_count()
-
-        self.peer_connection.send_data(
-            message_type='response', message_flag=self.message.flag, message_data=transaction_count)
-        print('Transaction Count Sent!')
 
     # ------------------------------------------------------------------------------
     def __handle_heartbeat_request(self) -> None:
