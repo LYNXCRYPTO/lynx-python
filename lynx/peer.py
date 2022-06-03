@@ -8,7 +8,7 @@ import threading
 class Peer:
 
     # ------------------------------------------------------------------------------
-    def __init__(self, address: str = None, services: list = None, version: str = None, sub_version: str = None, timestamp: str = None, nonce: str = None, start_accounts_count: int = None, max_states_in_transit: int = 10, relay: bool = None, peer_info=None) -> None:
+    def __init__(self, address: str = None, host: str = None, port: str = None, services: list = None, version: str = None, sub_version: str = None, timestamp: str = None, nonce: str = None, start_accounts_count: int = None, max_states_in_transit: int = 10, relay: bool = None, peer_info=None) -> None:
         # --------------------------------------------------------------------------
         """Initializes a Peer object with information pertaining to its IP address,
         port, network, and message logs.
@@ -17,10 +17,10 @@ class Peer:
         self.debug = 1
         self.id = self.get_number_of_known_peers() + 1
         if peer_info is None:
-            self.address = address
-            self.host, self.port = address.split(':')
-            self.network = Utilities.is_valid_ip_address(
-                address.split(':')[0])
+            self.host = host
+            self.port = port
+            self.address = '{}:{}'.format(host, port)
+            self.network = Utilities.is_valid_ip_address(host)
             self.services = services
             self.version = version
             self.sub_version = sub_version

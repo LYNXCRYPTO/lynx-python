@@ -47,15 +47,16 @@ class Server:
                          services=NODE_SERVICES,
                          timestamp=str(time.time()),
                          nonce=uuid.uuid4().hex + uuid.uuid1().hex,
-                         address='{}:{}'.format('127.0.0.1', '6968'),
+                         host='127.0.0.1',
+                         port='6969',
                          sub_version=SUB_VERSION,
                          start_accounts_count=10,
                          relay=False,
                          )
         # List of Peer objects
-        self.peers = {'{}:{}'.format('127.0.0.1', '6968'): test_peer.to_JSON}
+        self.peers = {'{}:{}'.format('127.0.0.1', '6969'): test_peer}
 
-        self.inventory = Inventory(on_extension=self.send_data_request)
+        self.inventory = Inventory(on_extension=self.send_all_peers_request)
 
         self.shutdown = False  # condition used to stop server listen
 
@@ -135,32 +136,30 @@ class Server:
     def send_data_request(self, peer: Peer):
         # --------------------------------------------------------------------------
         """"""
-
+        print("SEND DATA REQUEST CALLED!")
         try:
-            if len(self.inventory) > 0 and len(peer.states_requested) < peer.max_states_in_transit:
-                inventory_batch_length = peer.max_states_in_transit - \
+            if len(peer.states_requested) < peer.max_states_in_transit:
+                batch_amount = peer.max_states_in_transit - \
                     len(peer.states_requested)
-                if len(self.inventory) >= inventory_batch_length:
-                    inventory_batch = []
-                    # self.inventory[0:inventory_batch_length]
-                    del inventory_batch[0:inventory_batch_length]
+                inventory_batch = self.inventory.get_batch(amount=batch_amount)
+                if len(inventory_batch) > 0:
+                    payload = {'inventory_count': len(
+                        inventory_batch), 'inventory': inventory_batch}
+
+                    peer.states_requested.extend(inventory_batch)
+
+                    data_request_thread = threading.Thread(target=self.connect_and_send, args=[
+                        peer.host, peer.port, 'request', 4, payload, peer.address], name='Data Request Thread')
+                    data_request_thread.start()
                 else:
-                    inventory_batch = []
-                    # self.inventory[0:]
-                    inventory_batch.clear()
-
-                payload = {'inventory_count': len(
-                    inventory_batch), 'inventory': inventory_batch}
-
-                peer.states_requested.extend(inventory_batch)
-
-                data_request_thread = threading.Thread(target=self.connect_and_send, args=[
-                    peer.host, peer.port, 'request', 4, payload, peer.address], name='Data Request Thread')
-                data_request_thread.start()
+                    raise ValueError
             else:
-                raise ValueError
+                raise IndexError
+        except IndexError:
+            self.__debug('Peer Is Too Busy Reponding to {} Requests!'.format(
+                peer.max_states_in_transit))
         except ValueError:
-            self.__debug('There is nothing to request data for!')
+            self.__debug('There is Nothing to Request Data For!')
         except:
             self.__debug('Failed to send data request. Retrying...')
             del peer.states_requested[-len(inventory_batch):]
@@ -178,6 +177,22 @@ class Server:
                 print('Heartbeat request started!')
             except:
                 self.__debug('Failed to request heartbeat from %s.' % peer)
+
+    # ------------------------------------------------------------------------------
+    def send_all_peers_request(self, flag: int = 0) -> None:
+        # --------------------------------------------------------------------------
+        """"""
+
+        if 0 < flag < 100:
+            for peer_id, peer in self.peers.items():
+                if flag == 1:
+                    self.send_version_request(peer)
+                elif flag == 2:
+                    self.send_address_request(peer)
+                elif flag == 3:
+                    self.send_account_request(peer)
+                elif flag == 4:
+                    self.send_data_request(peer)
 
     # ------------------------------------------------------------------------------
     def add_peer(self, peer: Peer) -> bool:
@@ -316,7 +331,7 @@ class Server:
         peer_connection.close()
 
     # ------------------------------------------------------------------------------
-    def connect_and_send(self, host, port, message_type: str, message_flag: int, message_data, peer_id: None) -> list:
+    def connect_and_send(self, host, port, message_type: str, message_flag: int, message_data, peer_id=None) -> list:
         # --------------------------------------------------------------------------
         """Connects and sends a message to the specified host:port. The host's
         reply, if expected, will be returned as a list.

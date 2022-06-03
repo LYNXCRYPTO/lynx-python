@@ -81,8 +81,6 @@ class Response:
         """"""
 
         if MessageValidation.validate_account_response(message=self.message):
-            host, port = self.peer_connection.s.getpeername()
-
             self.server.inventory.extend(self.message.data['inventory'])
 
     # ------------------------------------------------------------------------------
