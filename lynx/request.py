@@ -85,7 +85,6 @@ class Request:
             account_path = '../accounts/{}/'.format(
                 self.message.data['account'])
             state_path = account_path + 'states/'
-
             if exists(account_path) and exists(state_path):
                 state_hashes = []
                 count = 1
@@ -95,6 +94,7 @@ class Request:
                         state = State.from_File(state_file)
                         if state.current_reference == self.message.data['best_state']:
                             best_state_found = True
+                            state_hashes.append(state.current_reference)
                         elif best_state_found:
                             state_hashes.append(state.current_reference)
                         if count > 500:
@@ -114,7 +114,12 @@ class Request:
     def __handle_data_request(self) -> None:
         # --------------------------------------------------------------------------
         """"""
-        pass
+
+        if MessageValidation.validate_data_request(message=self.message):
+            pass
+            # for item in self.message.data['inventory']:
+            # TODO
+            #state = State.from_File()
 
     # ------------------------------------------------------------------------------
     def __handle_heartbeat_request(self) -> None:

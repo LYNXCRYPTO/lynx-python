@@ -132,4 +132,28 @@ class MessageValidation:
 
         return is_request_valid
 
+    @classmethod
+    # ------------------------------------------------------------------------------
+    def validate_data_request(self, message: Message) -> bool:
+        # --------------------------------------------------------------------------
+        """Checks to see if incoming data request message is formatted according
+        to our standards so node can handle the request without errors.
+        """
+
+        message_keys = {'inventory_count': False, 'inventory': False}
+        is_request_valid = True
+
+        if message.type == 'request' and message.flag == 4 and isinstance(message.data, dict):
+            for k in message.data:
+                if k in message_keys:
+                    del message_keys[k]
+                else:
+                    is_request_valid = False
+                    break
+            if is_request_valid and len(message_keys) > 0:
+                is_request_valid = False
+
+        return is_request_valid
+
+
 # end MessageValidation class

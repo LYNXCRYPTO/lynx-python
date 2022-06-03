@@ -1,8 +1,11 @@
+from typing import Callable
+from peer import Peer
+
 
 class Inventory:
 
     # ------------------------------------------------------------------------------
-    def __init__(self, inventory: list = [], on_extension=lambda: None) -> None:
+    def __init__(self, inventory: list = [], on_extension: Callable[[int], None] = lambda: None) -> None:
         # --------------------------------------------------------------------------
         """Initializes an Inventory object"""
 
@@ -23,6 +26,23 @@ class Inventory:
 
         if new_inventory is not None and len(new_inventory) > 0:
             self.inventory.extend(new_inventory)
-            self.on_extension()
+            self.on_extension(4)
             return True
         return False
+
+    # ------------------------------------------------------------------------------
+    def get_batch(self, amount: int = 0) -> list:
+        # --------------------------------------------------------------------------
+        """"""
+
+        inventory_batch = []
+
+        if len(self.inventory) > 0:
+            if len(self.inventory) >= amount:
+                inventory_batch.extend(self.inventory[0:amount])
+                del self.inventory[0:amount]
+            else:
+                inventory_batch.extend(self.inventory[0:])
+                self.inventory.clear()
+
+        return inventory_batch
