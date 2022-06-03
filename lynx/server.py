@@ -5,13 +5,13 @@ import threading
 import traceback
 from account import Account
 from peer import Peer
+from inventory import Inventory
 from peer_connection import PeerConnection
 from request import Request
 from response import Response
 from message import Message
 from constants import PROTOCOL_VERSION, NODE_SERVICES, SUB_VERSION
 from utilities import Utilities
-from hashlib import sha3_256
 
 
 def display_debug(msg):
@@ -55,6 +55,8 @@ class Server:
         # List of Peer objects
         self.peers = {'{}:{}'.format('127.0.0.1', '6968'): test_peer.to_JSON}
 
+        self.inventory = Inventory(on_extension=self.send_data_request)
+
         self.shutdown = False  # condition used to stop server listen
 
         self.__debug('Configuring Port...')
@@ -75,7 +77,7 @@ class Server:
         server_socket.close()
 
     # ------------------------------------------------------------------------------
-    def send_version_request(self, host, port):
+    def send_version_request(self, peer: Peer):
         # --------------------------------------------------------------------------
         """"""
 
@@ -84,36 +86,37 @@ class Server:
                            'timestamp': str(time.time()),
                            'nonce': self.nonce,
                            'address_from': '{}:{}'.format(self.host, self.port),
-                           'address_receive': '{}:{}'.format(host, port),
+                           'address_receive': peer.address,
                            'sub_version': SUB_VERSION,
                            'start_accounts_count': Utilities.get_transaction_count(),
+                           'max_states_in_transit': 10,
                            'relay': False,
                            }
 
         try:
             version_request_thread = threading.Thread(target=self.connect_and_send, args=[
-                host, port, 'request', 1, version_message, '{}:{}'.format(host, port)], name='Version Request Thread')
+                peer.host, peer.port, 'request', 1, version_message, peer.address], name='Version Request Thread')
             version_request_thread.start()
         except:
             self.__debug('Failed to send version request. Retrying...')
 
     # ------------------------------------------------------------------------------
-    def send_address_request(self, host, port):
+    def send_address_request(self, peer: Peer):
         # --------------------------------------------------------------------------
         """"""
 
         payload = {'address_count': 1,
-                   'address_list': ['{}:{}'.format(self.host, self.port)]}
+                   'address_list': [peer.address]}
 
         try:
             address_request_thread = threading.Thread(target=self.connect_and_send, args=[
-                host, port, 'request', 2, payload, '{}:{}'.format(host, port)], name='Address Request Thread')
+                peer.host, peer.port, 'request', 2, payload, peer.address], name='Address Request Thread')
             address_request_thread.start()
         except:
             self.__debug('Failed to send address request. Retrying...')
 
     # ------------------------------------------------------------------------------
-    def send_account_request(self, host, port):
+    def send_account_request(self, peer: Peer):
         # --------------------------------------------------------------------------
         """"""
 
@@ -123,32 +126,44 @@ class Server:
 
         try:
             account_request_thread = threading.Thread(target=self.connect_and_send, args=[
-                host, port, 'request', 3, payload, '{}:{}'.format(host, port)], name='Account Request Thread')
+                peer.host, peer.port, 'request', 3, payload, peer.address], name='Account Request Thread')
             account_request_thread.start()
         except:
             self.__debug('Failed to send account request. Retrying...')
 
     # ------------------------------------------------------------------------------
-    def send_data_request(self, host, port, inventory: list):
+    def send_data_request(self, peer: Peer):
         # --------------------------------------------------------------------------
         """"""
 
         try:
-            if len(inventory) == 0 or inventory is None:
-                raise ValueError
-            else:
-                # if (inventory)
+            if len(self.inventory) > 0 and len(peer.states_requested) < peer.max_states_in_transit:
+                inventory_batch_length = peer.max_states_in_transit - \
+                    len(peer.states_requested)
+                if len(self.inventory) >= inventory_batch_length:
+                    inventory_batch = []
+                    # self.inventory[0:inventory_batch_length]
+                    del inventory_batch[0:inventory_batch_length]
+                else:
+                    inventory_batch = []
+                    # self.inventory[0:]
+                    inventory_batch.clear()
 
                 payload = {'inventory_count': len(
-                    inventory), 'inventory': inventory}
+                    inventory_batch), 'inventory': inventory_batch}
 
-                account_request_thread = threading.Thread(target=self.connect_and_send, args=[
-                    host, port, 'request', 4, payload, '{}:{}'.format(host, port)], name='Data Request Thread')
-                account_request_thread.start()
+                peer.states_requested.extend(inventory_batch)
+
+                data_request_thread = threading.Thread(target=self.connect_and_send, args=[
+                    peer.host, peer.port, 'request', 4, payload, peer.address], name='Data Request Thread')
+                data_request_thread.start()
+            else:
+                raise ValueError
         except ValueError:
-            self.__debug('Data requested what empty or None')
+            self.__debug('There is nothing to request data for!')
         except:
             self.__debug('Failed to send data request. Retrying...')
+            del peer.states_requested[-len(inventory_batch):]
 
     # ------------------------------------------------------------------------------
     def send_heartbeat_request(self):

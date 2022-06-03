@@ -81,27 +81,11 @@ class Response:
         """"""
 
         if MessageValidation.validate_account_response(message=self.message):
-            inventory = {self.message.data['inventory'][i]: False for i in range(
-                0, len(self.message.data['inventory']), 2)}
-            # MAKE SELF.SERVER.SEND_DATA_REQUEST RECURSIVELY CALLED
-            # TODO Get This Informtion From Peer Object
-            max_states_in_transit_per_peer = 10
-            batch_count = 0
-            current_index = 0
-            end_index = max_states_in_transit_per_peer
+            host, port = self.peer_connection.s.getpeername()
 
-            while len(inventory) > 0:
-                if end_index <= len(inventory) - 1:
-                    inventory_batch = self.message.data['inventory'][current_index:end_index]
-                else:
-                    inventory_batch = self.message.data['inventory'][current_index:]
+            self.server.inventory.extend(self.message.data['inventory'])
 
-                current_index = end_index
-                end_index += max_states_in_transit_per_peer
-                batch_count += 1
-                peers = [*self.server.peers]
-
-     # ------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------
     def __handle_data_response(self) -> None:
         # --------------------------------------------------------------------------
         """"""

@@ -87,7 +87,7 @@ class Request:
             state_path = account_path + 'states/'
 
             if exists(account_path) and exists(state_path):
-                account_hashes = []
+                state_hashes = []
                 count = 1
                 best_state_found = False
                 for file in listdir(state_path):
@@ -96,14 +96,14 @@ class Request:
                         if state.current_reference == self.message.data['best_state']:
                             best_state_found = True
                         elif best_state_found:
-                            account_hashes.append(state.current_reference)
+                            state_hashes.append(state.current_reference)
                         if count > 500:
                             break
                         state_file.close()
                         count += 1
 
-                payload = {'count': len(account_hashes),
-                           'inventory': account_hashes, }
+                payload = {'count': len(state_hashes),
+                           'inventory': state_hashes, }
             else:
                 payload = {'count': 0, 'inventory': [], }
 
@@ -114,6 +114,7 @@ class Request:
     def __handle_data_request(self) -> None:
         # --------------------------------------------------------------------------
         """"""
+        pass
 
     # ------------------------------------------------------------------------------
     def __handle_heartbeat_request(self) -> None:
