@@ -17,9 +17,9 @@ def heartbeat(host='localhost', port=8001) -> int:
         # in case something other than 'PONG' is received
         while time.time() - start <= 2.0:
             try:
-                response_byte = sock.recv(1024)
+                response_bytes, server = sock.recvfrom(1024)
                 end = time.time()
-                response_str = response_byte.decode('utf-8')
+                response_str = response_bytes.decode('utf-8')
                 if response_str == 'PONG':
                     # Return time elapsed in milliseconds
                     return int(end - start) * 1000
