@@ -2,6 +2,18 @@ from typing import Callable
 from peer import Peer
 
 
+class InventoryItem:
+
+    # ------------------------------------------------------------------------------
+    def __init__(self, type: str, account: str = None, data: str = None) -> None:
+        # --------------------------------------------------------------------------
+        """Initializes an Inventory object"""
+
+        self.type = type
+        self.account = account
+        self.data = data
+
+
 class Inventory:
 
     # ------------------------------------------------------------------------------
@@ -18,6 +30,16 @@ class Inventory:
         """"""
 
         return len(self.inventory)
+
+    # ------------------------------------------------------------------------------
+    def append(self, new_inventory: InventoryItem) -> bool:
+        # --------------------------------------------------------------------------
+        """"""
+
+        if new_inventory is not None and len(new_inventory) > 0:
+            self.inventory.append(new_inventory)
+            return True
+        return False
 
     # ------------------------------------------------------------------------------
     def extend(self, new_inventory: list) -> bool:

@@ -2,6 +2,7 @@ from __future__ import annotations
 from peer import Peer
 from message import Message
 from message_validation import MessageValidation
+from inventory import InventoryItem
 import threading
 from utilities import Utilities
 import json
@@ -39,7 +40,7 @@ class Response:
         elif self.message.flag == 2:
             self.__handle_address_response()
         elif self.message.flag == 3:
-            self.__handle_account_response()
+            self.__handle_states_response()
         elif self.message.flag == 4:
             self.__handle_data_response()
         elif self.message.flag == 5:
@@ -76,12 +77,14 @@ class Response:
             print('Unable to handle address response')
 
     # ------------------------------------------------------------------------------
-    def __handle_account_response(self) -> None:
+    def __handle_states_response(self) -> None:
         # --------------------------------------------------------------------------
         """"""
 
-        if MessageValidation.validate_account_response(message=self.message):
+        if MessageValidation.validate_states_response(message=self.message):
             self.server.inventory.extend(self.message.data['inventory'])
+        else:
+            print('Unable to handle state response')
 
     # ------------------------------------------------------------------------------
     def __handle_data_response(self) -> None:
