@@ -5,13 +5,13 @@ import threading
 import traceback
 from account import Account
 from peer import Peer
+from inventory import Inventory
 from peer_connection import PeerConnection
 from request import Request
 from response import Response
 from message import Message
 from constants import PROTOCOL_VERSION, NODE_SERVICES, SUB_VERSION
 from utilities import Utilities
-from hashlib import sha3_256
 
 
 def display_debug(msg):
@@ -47,13 +47,16 @@ class Server:
                          services=NODE_SERVICES,
                          timestamp=str(time.time()),
                          nonce=uuid.uuid4().hex + uuid.uuid1().hex,
-                         address='{}:{}'.format('127.0.0.1', '6968'),
+                         host='127.0.0.1',
+                         port='6969',
                          sub_version=SUB_VERSION,
                          start_accounts_count=10,
                          relay=False,
                          )
         # List of Peer objects
-        self.peers = {'{}:{}'.format('127.0.0.1', '6968'): test_peer.to_JSON}
+        self.peers = {'{}:{}'.format('127.0.0.1', '6969'): test_peer}
+
+        self.inventory = Inventory(on_extension=self.send_all_peers_request)
 
         self.shutdown = False  # condition used to stop server listen
 
@@ -75,7 +78,7 @@ class Server:
         server_socket.close()
 
     # ------------------------------------------------------------------------------
-    def send_version_request(self, host, port):
+    def send_version_request(self, peer: Peer):
         # --------------------------------------------------------------------------
         """"""
 
@@ -84,36 +87,37 @@ class Server:
                            'timestamp': str(time.time()),
                            'nonce': self.nonce,
                            'address_from': '{}:{}'.format(self.host, self.port),
-                           'address_receive': '{}:{}'.format(host, port),
+                           'address_receive': peer.address,
                            'sub_version': SUB_VERSION,
                            'start_accounts_count': Utilities.get_transaction_count(),
+                           'max_states_in_transit': 10,
                            'relay': False,
                            }
 
         try:
             version_request_thread = threading.Thread(target=self.connect_and_send, args=[
-                host, port, 'request', 1, version_message, '{}:{}'.format(host, port)], name='Version Request Thread')
+                peer.host, peer.port, 'request', 1, version_message, peer.address], name='Version Request Thread')
             version_request_thread.start()
         except:
-            self.__debug('Failed to send version request. Retrying...')
+            self.__debug('Failed to Send Version Request. Retrying...')
 
     # ------------------------------------------------------------------------------
-    def send_address_request(self, host, port):
+    def send_address_request(self, peer: Peer):
         # --------------------------------------------------------------------------
         """"""
 
         payload = {'address_count': 1,
-                   'address_list': ['{}:{}'.format(self.host, self.port)]}
+                   'address_list': [peer.address]}
 
         try:
             address_request_thread = threading.Thread(target=self.connect_and_send, args=[
-                host, port, 'request', 2, payload, '{}:{}'.format(host, port)], name='Address Request Thread')
+                peer.host, peer.port, 'request', 2, payload, peer.address], name='Address Request Thread')
             address_request_thread.start()
         except:
-            self.__debug('Failed to send address request. Retrying...')
+            self.__debug('Failed to Send Address Request. Retrying...')
 
     # ------------------------------------------------------------------------------
-    def send_account_request(self, host, port):
+    def send_states_request(self, peer: Peer):
         # --------------------------------------------------------------------------
         """"""
 
@@ -123,32 +127,42 @@ class Server:
 
         try:
             account_request_thread = threading.Thread(target=self.connect_and_send, args=[
-                host, port, 'request', 3, payload, '{}:{}'.format(host, port)], name='Account Request Thread')
+                peer.host, peer.port, 'request', 3, payload, peer.address], name='States Request Thread')
             account_request_thread.start()
         except:
-            self.__debug('Failed to send account request. Retrying...')
+            self.__debug('Failed to Send States Request. Retrying...')
 
     # ------------------------------------------------------------------------------
-    def send_data_request(self, host, port, inventory: list):
+    def send_data_request(self, peer: Peer):
         # --------------------------------------------------------------------------
         """"""
 
         try:
-            if len(inventory) == 0 or inventory is None:
-                raise ValueError
+            if len(peer.states_requested) < peer.max_states_in_transit:
+                batch_amount = peer.max_states_in_transit - \
+                    len(peer.states_requested)
+                inventory_batch = self.inventory.get_batch(amount=batch_amount)
+                if len(inventory_batch) > 0:
+                    payload = {'inventory_count': len(
+                        inventory_batch), 'inventory': inventory_batch}
+
+                    peer.states_requested.extend(inventory_batch)
+
+                    data_request_thread = threading.Thread(target=self.connect_and_send, args=[
+                        peer.host, peer.port, 'request', 4, payload, peer.address], name='Data Request Thread')
+                    data_request_thread.start()
+                else:
+                    raise ValueError
             else:
-                # if (inventory)
-
-                payload = {'inventory_count': len(
-                    inventory), 'inventory': inventory}
-
-                account_request_thread = threading.Thread(target=self.connect_and_send, args=[
-                    host, port, 'request', 4, payload, '{}:{}'.format(host, port)], name='Data Request Thread')
-                account_request_thread.start()
+                raise IndexError
+        except IndexError:
+            self.__debug(
+                f'Peer Is Too Busy Reponding to {peer.max_states_in_transit} Requests!')
         except ValueError:
-            self.__debug('Data requested what empty or None')
+            self.__debug('There is Nothing to Request Data For!')
         except:
             self.__debug('Failed to send data request. Retrying...')
+            del peer.states_requested[-len(inventory_batch):]
 
     # ------------------------------------------------------------------------------
     def send_heartbeat_request(self):
@@ -163,6 +177,22 @@ class Server:
                 print('Heartbeat request started!')
             except:
                 self.__debug('Failed to request heartbeat from %s.' % peer)
+
+    # ------------------------------------------------------------------------------
+    def send_all_peers_request(self, flag: int = 0) -> None:
+        # --------------------------------------------------------------------------
+        """"""
+
+        if 0 < flag < 100:
+            for peer_id, peer in self.peers.items():
+                if flag == 1:
+                    self.send_version_request(peer)
+                elif flag == 2:
+                    self.send_address_request(peer)
+                elif flag == 3:
+                    self.send_states_request(peer)
+                elif flag == 4:
+                    self.send_data_request(peer)
 
     # ------------------------------------------------------------------------------
     def add_peer(self, peer: Peer) -> bool:
@@ -301,7 +331,7 @@ class Server:
         peer_connection.close()
 
     # ------------------------------------------------------------------------------
-    def connect_and_send(self, host, port, message_type: str, message_flag: int, message_data, peer_id: None) -> list:
+    def connect_and_send(self, host, port, message_type: str, message_flag: int, message_data, peer_id=None) -> list:
         # --------------------------------------------------------------------------
         """Connects and sends a message to the specified host:port. The host's
         reply, if expected, will be returned as a list.

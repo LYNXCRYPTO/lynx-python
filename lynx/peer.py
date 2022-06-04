@@ -8,7 +8,7 @@ import threading
 class Peer:
 
     # ------------------------------------------------------------------------------
-    def __init__(self, address: str = None, services: list = None, version: str = None, sub_version: str = None, timestamp: str = None, nonce: str = None, start_accounts_count: int = None, relay: bool = None, peer_info=None) -> None:
+    def __init__(self, address: str = None, host: str = None, port: str = None, services: list = None, version: str = None, sub_version: str = None, timestamp: str = None, nonce: str = None, start_accounts_count: int = None, max_states_in_transit: int = 10, relay: bool = None, peer_info=None) -> None:
         # --------------------------------------------------------------------------
         """Initializes a Peer object with information pertaining to its IP address,
         port, network, and message logs.
@@ -17,10 +17,10 @@ class Peer:
         self.debug = 1
         self.id = self.get_number_of_known_peers() + 1
         if peer_info is None:
-            self.address = address
-            self.host, self.port = address.split(':')
-            self.network = Utilities.is_valid_ip_address(
-                address.split(':')[0])
+            self.host = host
+            self.port = port
+            self.address = '{}:{}'.format(host, port)
+            self.network = Utilities.is_valid_ip_address(host)
             self.services = services
             self.version = version
             self.sub_version = sub_version
@@ -28,6 +28,7 @@ class Peer:
             self.nonce = nonce
             self.start_accounts_count = start_accounts_count
             self.relay = relay
+            self.max_states_in_transit = max_states_in_transit
         else:
             self.address = peer_info['address_from']
             self.host, self.port = peer_info['address_from'].split(':')
@@ -40,6 +41,9 @@ class Peer:
             self.nonce = peer_info['nonce']
             self.start_accounts_count = peer_info['start_accounts_count']
             self.relay = peer_info['relay']
+            self.max_states_in_transit = peer_info['max_states_in_transit']
+
+        self.states_requested = []
 
         if not self.is_peer_known():
             self.add_peer()
