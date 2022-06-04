@@ -9,7 +9,7 @@ def heartbeat(host='localhost', port=8001) -> int:
         msg_str = 'PING'
         addr = (host, port)
         # Set timeout to 2 seconds
-        time_left = 2.0
+        time_left = 0
         sock.settimeout(time_left)
         print("CLIENT sending: PING")
         start = time.time()
@@ -26,7 +26,9 @@ def heartbeat(host='localhost', port=8001) -> int:
                     return int((end - start) * 1000)
                 else:
                     # Update timeout
-                    time_left -= (time.time() - start)
+                    time_left -= time.time() - start
+                    if time_left <= 0:
+                        raise socket.timeout
                     sock.settimeout(time_left)
                     print("CLIENT continue listening...")
                     # Continue listening if 'PONG' not received

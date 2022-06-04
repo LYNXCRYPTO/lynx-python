@@ -17,12 +17,8 @@ parser.add_argument('--wait', type=float)
 args = parser.parse_args()
 
 def test_heartbeat_server():
-    wait = 0
-    if args.wait:
-        wait = args.wait
-    response_str = 'PONG'
-    if args.msg:
-        response_str = args.msg
+    wait = 0 if not args.wait else args.wait
+    response_str = 'PONG' if not args.msg else args.msg
 
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
