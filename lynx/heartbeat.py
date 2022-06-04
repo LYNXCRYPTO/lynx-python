@@ -11,21 +11,26 @@ def heartbeat(host='localhost', port=8001) -> int:
         # Set timeout to 2 seconds
         sock.settimeout(2.0)
         start = time.time()
+        print("CLIENT sending: PING")
         sock.sendto(msg_str.encode('utf-8'), addr)
 
-        # Exist loop if exceeds 2 seconds to prevent re-blocking of sock.recv()
-        # in case something other than 'PONG' is received
-        while time.time() - start <= 2.0:
+        while True:
             try:
                 response_bytes, server = sock.recvfrom(1024)
                 end = time.time()
                 response_str = response_bytes.decode('utf-8')
+                print("CLIENT received:", response_str)
                 if response_str == 'PONG':
                     # Return time elapsed in milliseconds
-                    return int(end - start) * 1000
+                    return int((end - start) * 1000)
                 else:
+                    # Update timeout
+                    sock.settimeout(2.0 - (time.time() - start))
+                    print("CLIENT continue listening...")
                     # Continue listening if 'PONG' not received
                     continue
             except socket.timeout:
-                return -1
+                print("PONG Timeout")
+                print("TIME ELAPSED:", int((time.time() - start) * 1000), "ms")
+                break
         return -1
