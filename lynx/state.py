@@ -6,7 +6,7 @@ class State:
     '''This class is responsible for managing a current or past state of an account.'''
 
     # ------------------------------------------------------------------------------
-    def __init__(self, nonce: str, previous_reference: str, current_reference: str) -> None:
+    def __init__(self, nonce: str, previous_reference: str, current_reference: str, balance: int) -> None:
         # --------------------------------------------------------------------------
         """Initializes a State object"""
         # TODO Add Transaction class
@@ -14,6 +14,7 @@ class State:
         self.nonce = nonce
         self.previous_reference = previous_reference
         self.current_reference = current_reference
+        self.balance = balance
 
     # ------------------------------------------------------------------------------
     def to_JSON(self) -> str:
@@ -37,7 +38,7 @@ class State:
                 raise ValueError
 
             state = State(nonce=data['nonce'], previous_reference=data['previous_reference'],
-                          current_reference=data['current_reference'])
+                          current_reference=data['current_reference'], balance=data['balance'])
             return state
         except ValueError:
             print('State data is not a "dict".')
@@ -63,7 +64,7 @@ class State:
                 raise ValueError
 
             state = State(nonce=data['nonce'], previous_reference=data['previous_reference'],
-                          current_reference=data['current_reference'])
+                          current_reference=data['current_reference'], balance=data['balance'])
             return state
         except ValueError:
             print('State data is not a "dict".')

@@ -36,7 +36,7 @@ class Request:
         elif self.message.flag == 2:
             self.__handle_address_request()
         elif self.message.flag == 3:
-            self.__handle_account_request()
+            self.__handle_states_request()
         elif self.message.flag == 4:
             self.__handle_data_request()
         elif self.message.flag == 5:
@@ -76,18 +76,16 @@ class Request:
                 'response', self.message.flag, payload)
 
     # ------------------------------------------------------------------------------
-    def __handle_account_request(self) -> None:
+    def __handle_states_request(self) -> None:
         # --------------------------------------------------------------------------
         """"""
 
-        if MessageValidation.validate_account_request(message=self.message):
-
+        if MessageValidation.validate_states_request(message=self.message):
             account_path = '../accounts/{}/'.format(
                 self.message.data['account'])
             state_path = account_path + 'states/'
-
             if exists(account_path) and exists(state_path):
-                account_hashes = []
+                state_hashes = []
                 count = 1
                 best_state_found = False
                 for file in listdir(state_path):
@@ -95,27 +93,54 @@ class Request:
                         state = State.from_File(state_file)
                         if state.current_reference == self.message.data['best_state']:
                             best_state_found = True
+                            state_hashes.append(
+                                f'{self.message.data["account"]}/{state.current_reference}')
                         elif best_state_found:
-                            account_hashes.append(state.current_reference)
+                            state_hashes.append(
+                                f'{self.message.data["account"]}/{state.current_reference}')
                         if count > 500:
                             break
                         state_file.close()
                         count += 1
 
-                payload = {'count': len(account_hashes),
-                           'inventory': account_hashes, }
+                payload = {
+                    'count': len(state_hashes),
+                    'inventory': state_hashes, }
             else:
-                payload = {'count': 0, 'inventory': [], }
+                payload = {'count': 0,
+                           'inventory': [], }
+        else:
+            payload = {'count': 0,
+                       'inventory': [], }
 
-            self.peer_connection.send_data(
-                'response', self.message.flag, payload)
+        self.peer_connection.send_data(
+            'response', self.message.flag, payload)
 
     # ------------------------------------------------------------------------------
     def __handle_data_request(self) -> None:
         # --------------------------------------------------------------------------
         """"""
 
+        inventory_to_send = []
+        if MessageValidation.validate_data_request(message=self.message):
+            for item in self.message.data['inventory']:
+                account_reference, state_reference = item.split('/')
+                account_path = '../accounts/{}/'.format(account_reference)
+                state_path = account_path + 'states/'
+                if exists(account_path) and exists(state_path):
+                    for file in listdir(state_path):
+                        with open(state_path + file, 'r+') as state_file:
+                            state = State.from_File(state_file)
+                            state_payload = {'nonce': state.nonce, 'previous_reference': state.previous_reference,
+                                             'current_reference': state.current_reference, 'balance': state.balance}
+                            inventory_to_send.append(state_payload)
+        payload = {'inventory_count': len(
+            inventory_to_send), 'inventory': inventory_to_send}
+        self.peer_connection.send_data(
+            'response', self.message.flag, payload)
+
     # ------------------------------------------------------------------------------
+
     def __handle_heartbeat_request(self) -> None:
         # --------------------------------------------------------------------------
         """"""
