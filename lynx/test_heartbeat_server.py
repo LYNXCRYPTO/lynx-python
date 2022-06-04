@@ -4,7 +4,7 @@ import time
 
 # Command Line Arguemnts
 # host: this server's host
-# port: this server's property
+# port: this server's port
 # msg: message to send to client (optional, defaults to 'PONG')
 # wait: time in seconds to wait before sending response (optional,
 #                                                        defaults to 0)
