@@ -99,7 +99,7 @@ class Server:
                 peer.host, peer.port, 'request', 1, version_message, peer.address], name='Version Request Thread')
             version_request_thread.start()
         except:
-            self.__debug('Failed to send version request. Retrying...')
+            self.__debug('Failed to Send Version Request. Retrying...')
 
     # ------------------------------------------------------------------------------
     def send_address_request(self, peer: Peer):
@@ -114,10 +114,10 @@ class Server:
                 peer.host, peer.port, 'request', 2, payload, peer.address], name='Address Request Thread')
             address_request_thread.start()
         except:
-            self.__debug('Failed to send address request. Retrying...')
+            self.__debug('Failed to Send Address Request. Retrying...')
 
     # ------------------------------------------------------------------------------
-    def send_account_request(self, peer: Peer):
+    def send_states_request(self, peer: Peer):
         # --------------------------------------------------------------------------
         """"""
 
@@ -127,16 +127,16 @@ class Server:
 
         try:
             account_request_thread = threading.Thread(target=self.connect_and_send, args=[
-                peer.host, peer.port, 'request', 3, payload, peer.address], name='Account Request Thread')
+                peer.host, peer.port, 'request', 3, payload, peer.address], name='States Request Thread')
             account_request_thread.start()
         except:
-            self.__debug('Failed to send account request. Retrying...')
+            self.__debug('Failed to Send States Request. Retrying...')
 
     # ------------------------------------------------------------------------------
     def send_data_request(self, peer: Peer):
         # --------------------------------------------------------------------------
         """"""
-        print("SEND DATA REQUEST CALLED!")
+
         try:
             if len(peer.states_requested) < peer.max_states_in_transit:
                 batch_amount = peer.max_states_in_transit - \
@@ -156,8 +156,8 @@ class Server:
             else:
                 raise IndexError
         except IndexError:
-            self.__debug('Peer Is Too Busy Reponding to {} Requests!'.format(
-                peer.max_states_in_transit))
+            self.__debug(
+                f'Peer Is Too Busy Reponding to {peer.max_states_in_transit} Requests!')
         except ValueError:
             self.__debug('There is Nothing to Request Data For!')
         except:
@@ -190,7 +190,7 @@ class Server:
                 elif flag == 2:
                     self.send_address_request(peer)
                 elif flag == 3:
-                    self.send_account_request(peer)
+                    self.send_states_request(peer)
                 elif flag == 4:
                     self.send_data_request(peer)
 
