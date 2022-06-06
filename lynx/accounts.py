@@ -1,5 +1,6 @@
 import random
 import glob
+import os
 import json
 
 class Accounts:
@@ -11,17 +12,18 @@ class Accounts:
 
 
     def getBalance(self):
-        #sets the directory which the state chain .dat files are located
-        directory = f"./accounts/{self.address}/states"
-
-
-        #itterates through the files 
-        for filename in glob.iglob(f'{directory}/*'):
-
+        try:
             #opens as json and reads the balance of the state chain object
-            with open(f"{filename}") as datfile:
+            file_list = os.listdir(f"./accounts/{self.address}/states/")
+
+            with open(f"./accounts/{self.address}/states/{file_list[-1]}") as datfile:
                 data = json.load(datfile)
 
-        #returns most recent blance which is set to the self.balance attribute
-        return data["balance"]
+            #returns most recent blance which is set to the self.balance attribute
+            return data["balance"]
+        except:
+            return None
+
+newAccount = Accounts()
+print(newAccount.balance)
 
