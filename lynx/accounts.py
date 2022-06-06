@@ -6,7 +6,7 @@ import json
 class Accounts:
     def __init__(self):
         self.address = hex(random.getrandbits(512))
-        self.contractCode = ""
+        self.contractCode = None
         self.storage = None
         self.balance = self.getBalance()
 
