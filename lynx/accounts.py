@@ -24,6 +24,4 @@ class Accounts:
         except:
             return None
 
-newAccount = Accounts()
-print(newAccount.balance)
 
