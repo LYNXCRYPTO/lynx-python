@@ -1,28 +1,19 @@
 from typing import Callable
-from peer import Peer
-
-
-class InventoryItem:
-
-    # ------------------------------------------------------------------------------
-    def __init__(self, type: str, account: str = None, data: str = None) -> None:
-        # --------------------------------------------------------------------------
-        """Initializes an Inventory object"""
-
-        self.type = type
-        self.account = account
-        self.data = data
 
 
 class Inventory:
 
     # ------------------------------------------------------------------------------
-    def __init__(self, inventory: list = [], on_extension: Callable[[int], None] = lambda: None) -> None:
+    def __init__(self, inventory: list = None, on_extension: Callable[[int], None] = lambda: None, flag: int = 0) -> None:
         # --------------------------------------------------------------------------
         """Initializes an Inventory object"""
 
-        self.inventory = inventory
+        if inventory is None:
+            self.inventory = []
+        else:
+            self.inventory = inventory
         self.on_extension = on_extension
+        self.flag = flag
 
     # ------------------------------------------------------------------------------
     def __len__(self) -> int:
@@ -32,7 +23,7 @@ class Inventory:
         return len(self.inventory)
 
     # ------------------------------------------------------------------------------
-    def append(self, new_inventory: InventoryItem) -> bool:
+    def append(self, new_inventory) -> bool:
         # --------------------------------------------------------------------------
         """"""
 
@@ -48,7 +39,7 @@ class Inventory:
 
         if new_inventory is not None and len(new_inventory) > 0:
             self.inventory.extend(new_inventory)
-            self.on_extension(4)
+            self.on_extension(self.flag)
             return True
         return False
 

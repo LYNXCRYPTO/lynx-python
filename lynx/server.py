@@ -56,7 +56,13 @@ class Server:
         # List of Peer objects
         self.peers = {'{}:{}'.format('127.0.0.1', '6969'): test_peer}
 
-        self.inventory = Inventory(on_extension=self.send_all_peers_request)
+        self.account_inventory = Inventory(
+            on_extension=self.send_all_peers_request, flag=4)
+        self.state_inventory = Inventory(
+            on_extension=self.send_all_peers_request, flag=5)
+
+        self.account_inventory_lock = threading.Lock()
+        self.state_inventory_lock = threading.Lock()
 
         self.shutdown = False  # condition used to stop server listen
 
@@ -117,17 +123,33 @@ class Server:
             self.__debug('Failed to Send Address Request. Retrying...')
 
     # ------------------------------------------------------------------------------
+    def send_accounts_request(self, peer: Peer):
+        # --------------------------------------------------------------------------
+        """"""
+
+        payload = {'inventory': [], 'count': 0}
+
+        try:
+            account_request_thread = threading.Thread(target=self.connect_and_send, args=[
+                peer.host, peer.port, 'request', 3, payload, peer.address], name='States Request Thread')
+            account_request_thread.start()
+        except:
+            self.__debug('Failed to Send States Request. Retrying...')
+
+    # ------------------------------------------------------------------------------
     def send_states_request(self, peer: Peer):
         # --------------------------------------------------------------------------
         """"""
 
         payload = {'version': PROTOCOL_VERSION,
                    'account': '0x69420',
-                   'best_state': '0x4206996420'}
+                   'best_state': ''}
+
+        # READ STATE INVENTORY AND DETERMINE BEST STATE FOR PAYLOAD
 
         try:
             account_request_thread = threading.Thread(target=self.connect_and_send, args=[
-                peer.host, peer.port, 'request', 3, payload, peer.address], name='States Request Thread')
+                peer.host, peer.port, 'request', 4, payload, peer.address], name='States Request Thread')
             account_request_thread.start()
         except:
             self.__debug('Failed to Send States Request. Retrying...')
@@ -141,15 +163,18 @@ class Server:
             if len(peer.states_requested) < peer.max_states_in_transit:
                 batch_amount = peer.max_states_in_transit - \
                     len(peer.states_requested)
-                inventory_batch = self.inventory.get_batch(amount=batch_amount)
+                inventory_batch = self.state_inventory.get_batch(
+                    amount=batch_amount)
                 if len(inventory_batch) > 0:
-                    payload = {'inventory_count': len(
+                    payload = {'count': len(
                         inventory_batch), 'inventory': inventory_batch}
 
+                    self.peer_lock.acquire()
                     peer.states_requested.extend(inventory_batch)
+                    self.peer_lock.release()
 
                     data_request_thread = threading.Thread(target=self.connect_and_send, args=[
-                        peer.host, peer.port, 'request', 4, payload, peer.address], name='Data Request Thread')
+                        peer.host, peer.port, 'request', 5, payload, peer.address], name='Data Request Thread')
                     data_request_thread.start()
                 else:
                     raise ValueError
@@ -172,11 +197,11 @@ class Server:
         for peer in self.peers:
             try:
                 heartbeat_thread = threading.Thread(target=self.connect_and_send, args=[
-                    self.peers[peer][0], self.peers[peer][1], 'request', 4, 'Heartbeat Request', peer], name='Heartbeat Thread (%s)' % peer)
+                    self.peers[peer][0], self.peers[peer][1], 'request', 4, 'Heartbeat Request', peer], name=f'Heartbeat Thread ({peer})')
                 heartbeat_thread.start()
                 print('Heartbeat request started!')
             except:
-                self.__debug('Failed to request heartbeat from %s.' % peer)
+                self.__debug(f'Failed to request heartbeat from ({peer}).')
 
     # ------------------------------------------------------------------------------
     def send_all_peers_request(self, flag: int = 0) -> None:
@@ -190,8 +215,10 @@ class Server:
                 elif flag == 2:
                     self.send_address_request(peer)
                 elif flag == 3:
-                    self.send_states_request(peer)
+                    self.send_accounts_request(peer)
                 elif flag == 4:
+                    self.send_states_request(peer)
+                elif flag == 5:
                     self.send_data_request(peer)
 
     # ------------------------------------------------------------------------------
@@ -289,7 +316,7 @@ class Server:
         # --------------------------------------------------------------------------
         """Dispatches messages from the socket connection."""
 
-        self.__debug('********************\n')
+        self.__debug('\n********************\n')
         self.__debug('Incoming Peer Connection Detected!')
 
         try:
@@ -345,24 +372,24 @@ class Server:
 
             if message_type == 'request':
                 self.__debug(
-                    'Attempting to receive a response from (%s)...' % peer_id)
+                    f'Attempting to receive a response from ({peer_id})...')
                 reply: Message = peer_connection.receive_data()
                 while reply is not None:
                     message_replies.append(reply)
                     self.__debug('Received a reply!')
                     reply = peer_connection.receive_data()
 
-                for i in range(len(message_replies)):
-                    self.__debug('Reply #{} Contents:\n\tType: {}\n\tFlag: {}\n\tData: {}\n'.format(
-                        i + 1, message_replies[i].type, message_replies[i].flag, message_replies[i].data))
+                for i, r in enumerate(message_replies):
+                    self.__debug(
+                        f'Reply #{i + 1} Contents:\n\tType: {r.type}\n\tFlag: {r.flag}\n\tData: {r.data}\n')
 
-                    if message_replies[i].type == 'request':
-                        Request(self, message_replies[i], peer_connection)
-                    elif message_replies[i].type == 'response':
-                        Response(self, message_replies[i], peer_connection)
+                    if r.type == 'request':
+                        Request(self, r, peer_connection)
+                    elif r.type == 'response':
+                        Response(self, r, peer_connection)
                     else:
                         self.__debug(
-                            'Unable to handle message type of "{}"'.format(message_replies[i].type))
+                            f'Unable to handle message type of "{r.type}"')
             peer_connection.close()
         except KeyboardInterrupt:
             raise
@@ -387,7 +414,7 @@ class Server:
 
         while not self.shutdown:
             try:
-                self.__debug('')
+                # self.__debug('')
                 client_socket, client_address = server_socket.accept()
                 client_socket.settimeout(None)
 

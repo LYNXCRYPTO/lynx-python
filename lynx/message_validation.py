@@ -86,14 +86,13 @@ class MessageValidation:
 
     @classmethod
     # ------------------------------------------------------------------------------
-    def validate_states_request(self, message: Message) -> bool:
+    def validate_accounts_request(self, message: Message) -> bool:
         # --------------------------------------------------------------------------
-        """Checks to see if incoming account request message is formatted according
+        """Checks to see if incoming accounts request message is formatted according
         to our standards so node can handle the request without errors.
         """
 
-        message_keys = {'version': False,
-                        'account': False, 'best_state': False, }
+        message_keys = {'count': False, 'inventory': False, }
         is_request_valid = True
 
         if message.type == 'request' and message.flag == 3 and isinstance(message.data, dict):
@@ -110,13 +109,60 @@ class MessageValidation:
 
     @classmethod
     # ------------------------------------------------------------------------------
-    def validate_states_response(self, message: Message) -> bool:
+    def validate_accounts_response(self, message: Message) -> bool:
         # --------------------------------------------------------------------------
-        """Checks to see if incoming states reponse message is formatted according
+        """Checks to see if incoming accounts response message is formatted according
         to our standards so node can handle the request without errors.
         """
 
-        message_keys = {'inventory_count': False, 'inventory': False, }
+        message_keys = {'count': False, 'inventory': False, }
+        is_request_valid = True
+
+        if message.type == 'response' and message.flag == 3 and isinstance(message.data, dict):
+            for k in message.data:
+                if k in message_keys:
+                    del message_keys[k]
+                else:
+                    is_request_valid = False
+                    break
+            if is_request_valid and len(message_keys) > 0:
+                is_request_valid = False
+
+        return is_request_valid
+
+    @classmethod
+    # ------------------------------------------------------------------------------
+    def validate_states_request(self, message: Message) -> bool:
+        # --------------------------------------------------------------------------
+        """Checks to see if incoming states request message is formatted according
+        to our standards so node can handle the request without errors.
+        """
+
+        message_keys = {'version': False,
+                        'account': False, 'best_state': False, }
+        is_request_valid = True
+
+        if message.type == 'request' and message.flag == 4 and isinstance(message.data, dict):
+            for k in message.data:
+                if k in message_keys:
+                    del message_keys[k]
+                else:
+                    is_request_valid = False
+                    break
+            if is_request_valid and len(message_keys) > 0:
+                is_request_valid = False
+
+        return is_request_valid
+
+    @classmethod
+    # ------------------------------------------------------------------------------
+    def validate_states_response(self, message: Message) -> bool:
+        # --------------------------------------------------------------------------
+        """Checks to see if incoming states response message is formatted according
+        to our standards so node can handle the request without errors.
+        """
+
+        message_keys = {'count': False, 'inventory': False, }
         is_request_valid = True
 
         if message.type == 'response' and message.flag == 4 and isinstance(message.data, dict):
@@ -139,10 +185,33 @@ class MessageValidation:
         to our standards so node can handle the request without errors.
         """
 
-        message_keys = {'inventory_count': False, 'inventory': False}
+        message_keys = {'count': False, 'inventory': False}
         is_request_valid = True
 
-        if message.type == 'request' and message.flag == 4 and isinstance(message.data, dict):
+        if message.type == 'request' and message.flag == 5 and isinstance(message.data, dict):
+            for k in message.data:
+                if k in message_keys:
+                    del message_keys[k]
+                else:
+                    is_request_valid = False
+                    break
+            if is_request_valid and len(message_keys) > 0:
+                is_request_valid = False
+
+        return is_request_valid
+
+    @classmethod
+    # ------------------------------------------------------------------------------
+    def validate_data_response(self, message: Message) -> bool:
+        # --------------------------------------------------------------------------
+        """Checks to see if incoming data response message is formatted according
+        to our standards so node can handle the request without errors.
+        """
+
+        message_keys = {'count': False, 'inventory': False}
+        is_request_valid = True
+
+        if message.type == 'response' and message.flag == 5 and isinstance(message.data, dict):
             for k in message.data:
                 if k in message_keys:
                     del message_keys[k]
