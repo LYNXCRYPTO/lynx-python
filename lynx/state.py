@@ -52,7 +52,7 @@ class State:
 
     @classmethod
     # ------------------------------------------------------------------------------
-    def from_File(self, file: TextIOWrapper):
+    def from_file(self, file: TextIOWrapper):
         # --------------------------------------------------------------------------
         """"Returns a State object given a JSON input. If JSON is not formatted
         correctly, this method will return None.

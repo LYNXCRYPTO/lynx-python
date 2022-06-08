@@ -2,9 +2,10 @@ from __future__ import annotations
 from peer import Peer
 from message import Message
 from message_validation import MessageValidation
-from inventory import InventoryItem
-import threading
+from state import State
 from utilities import Utilities
+from os import listdir
+from os.path import exists
 import json
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -40,10 +41,12 @@ class Response:
         elif self.message.flag == 2:
             self.__handle_address_response()
         elif self.message.flag == 3:
-            self.__handle_states_response()
+            self.__handle_accounts_response()
         elif self.message.flag == 4:
-            self.__handle_data_response()
+            self.__handle_states_response()
         elif self.message.flag == 5:
+            self.__handle_data_response()
+        elif self.message.flag == 6:
             self.__handle_heartbeat_response()
 
     # ------------------------------------------------------------------------------
@@ -77,25 +80,58 @@ class Response:
             print('Unable to handle address response')
 
     # ------------------------------------------------------------------------------
+    def __handle_accounts_response(self) -> None:
+        # --------------------------------------------------------------------------
+        """"""
+
+        if MessageValidation.validate_accounts_response(message=self.message):
+            self.server.account_inventory_lock.acquire()
+            self.server.account_inventory.extend(
+                self.message.data['inventory'])
+            self.server.account_inventory_lock.release()
+        else:
+            print('Unable to handle accounts response')
+
+    # ------------------------------------------------------------------------------
     def __handle_states_response(self) -> None:
         # --------------------------------------------------------------------------
         """"""
 
         if MessageValidation.validate_states_response(message=self.message):
-            self.server.inventory.extend(self.message.data['inventory'])
+            self.server.state_inventory_lock.acquire()
+            self.server.state_inventory.extend(self.message.data['inventory'])
+            self.server.state_inventory_lock.release()
         else:
-            print('Unable to handle state response')
+            print('Unable to handle states response')
 
     # ------------------------------------------------------------------------------
     def __handle_data_response(self) -> None:
         # --------------------------------------------------------------------------
         """"""
-        pass
+
+        if MessageValidation.validate_data_response(message=self.message):
+            for data in self.message.data['inventory']:
+                account_path = f'../accounts/{data["account"]}/'
+                state_path = account_path + 'states/'
+                new_state = State(nonce=data['nonce'], previous_reference=data['previous_reference'],
+                                  current_reference=data['current_reference'], balance=data['balance'])
+                if exists(account_path) and exists(state_path):
+                    for file in listdir(state_path):
+                        with open(state_path + file, 'r+') as state_file:
+                            state = State.from_file(state_file)
+                            if state.current_reference == data['previous_reference']:
+                                file_name: str = file.split('.')[0]
+                                new_state_height = int(
+                                    file_name[5:len(file_name)]) + 1
+                                with open(f'{state_path}/state{new_state_height}.dat', 'w+') as new_state_file:
+                                    new_state_file.write(new_state.to_JSON())
 
     # ------------------------------------------------------------------------------
+
     def __handle_heartbeat_response(self) -> None:
         # --------------------------------------------------------------------------
         """"""
+        pass
 
 
 # end Request class

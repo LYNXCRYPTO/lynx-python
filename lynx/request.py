@@ -36,10 +36,12 @@ class Request:
         elif self.message.flag == 2:
             self.__handle_address_request()
         elif self.message.flag == 3:
-            self.__handle_states_request()
+            self.__handle_accounts_request()
         elif self.message.flag == 4:
-            self.__handle_data_request()
+            self.__handle_states_request()
         elif self.message.flag == 5:
+            self.__handle_data_request()
+        elif self.message.flag == 6:
             self.__handle_heartbeat_request()
 
     # ------------------------------------------------------------------------------
@@ -76,42 +78,58 @@ class Request:
                 'response', self.message.flag, payload)
 
     # ------------------------------------------------------------------------------
+    def __handle_accounts_request(self) -> None:
+        # --------------------------------------------------------------------------
+        """"""
+
+        account_hashes = []
+
+        if MessageValidation.validate_accounts_request(message=self.message):
+            account_path = '../accounts/'
+            if exists(account_path):
+                count = 1
+                for account in listdir(account_path):
+                    account_hashes.append(account)
+                    if count > 500:
+                        break
+                    count += 1
+
+        payload = {
+            'count': len(account_hashes),
+            'inventory': account_hashes, }
+
+        self.peer_connection.send_data(
+            'response', self.message.flag, payload)
+
+    # ------------------------------------------------------------------------------
     def __handle_states_request(self) -> None:
         # --------------------------------------------------------------------------
         """"""
+        state_hashes = []
 
         if MessageValidation.validate_states_request(message=self.message):
             account_path = '../accounts/{}/'.format(
                 self.message.data['account'])
             state_path = account_path + 'states/'
             if exists(account_path) and exists(state_path):
-                state_hashes = []
                 count = 1
-                best_state_found = False
+                best_state_found = self.message.data['best_state'] == '' or self.message.data['best_state'] is None
                 for file in listdir(state_path):
                     with open(state_path + file, 'r+') as state_file:
-                        state = State.from_File(state_file)
-                        if state.current_reference == self.message.data['best_state']:
+                        state = State.from_file(state_file)
+                        if best_state_found:
+                            state_hashes.append(
+                                f'{self.message.data["account"]}/{state.current_reference}')
+                        elif state.current_reference == self.message.data['best_state']:
                             best_state_found = True
-                            state_hashes.append(
-                                f'{self.message.data["account"]}/{state.current_reference}')
-                        elif best_state_found:
-                            state_hashes.append(
-                                f'{self.message.data["account"]}/{state.current_reference}')
                         if count > 500:
                             break
                         state_file.close()
                         count += 1
 
-                payload = {
-                    'count': len(state_hashes),
-                    'inventory': state_hashes, }
-            else:
-                payload = {'count': 0,
-                           'inventory': [], }
-        else:
-            payload = {'count': 0,
-                       'inventory': [], }
+        payload = {
+            'count': len(state_hashes),
+            'inventory': state_hashes, }
 
         self.peer_connection.send_data(
             'response', self.message.flag, payload)
@@ -124,23 +142,27 @@ class Request:
         inventory_to_send = []
         if MessageValidation.validate_data_request(message=self.message):
             for item in self.message.data['inventory']:
-                account_reference, state_reference = item.split('/')
-                account_path = '../accounts/{}/'.format(account_reference)
+                data = item.split('/')
+                account_reference = data[0]
+                state_reference = data[1]
+                account_path = f'../accounts/{account_reference}/'
                 state_path = account_path + 'states/'
                 if exists(account_path) and exists(state_path):
                     for file in listdir(state_path):
                         with open(state_path + file, 'r+') as state_file:
-                            state = State.from_File(state_file)
-                            state_payload = {'nonce': state.nonce, 'previous_reference': state.previous_reference,
-                                             'current_reference': state.current_reference, 'balance': state.balance}
-                            inventory_to_send.append(state_payload)
-        payload = {'inventory_count': len(
+                            state = State.from_file(state_file)
+                            if state.current_reference == state_reference:
+                                state_payload = {'account': account_reference, 'nonce': state.nonce, 'previous_reference': state.previous_reference,
+                                                 'current_reference': state.current_reference, 'balance': state.balance, }
+                                inventory_to_send.append(state_payload)
+
+        payload = {'count': len(
             inventory_to_send), 'inventory': inventory_to_send}
+
         self.peer_connection.send_data(
             'response', self.message.flag, payload)
 
     # ------------------------------------------------------------------------------
-
     def __handle_heartbeat_request(self) -> None:
         # --------------------------------------------------------------------------
         """"""
