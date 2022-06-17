@@ -12,12 +12,7 @@ args = parser.parse_args()
 
 
 def test_heartbeat():
-    time = heartbeat(args.host, args.port)
-    if time != -1:
-        print("PONG received in ", time, "ms")
-    else:
-        print("Connection timeout, PONG not received within 2000 ms")
-
+    heartbeat(args.host, args.port)
 
 
 if __name__ == "__main__":
