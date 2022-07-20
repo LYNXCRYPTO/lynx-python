@@ -5,6 +5,8 @@ import threading
 import binascii
 from hashlib import sha3_256
 
+
+
 def display_debug(msg):
     """Prints a message to the screen with the name of the current thread"""
     print(msg)
@@ -30,11 +32,12 @@ class Account:
         if self.__debug:
             display_debug(message)
 
+    
+
     def verify_signature(self, signed_message: SignedMessage, sender_public_key) -> bool:
         """Verifies that the signature corresponding to the given message is a
         valid SHA3-256 signature.
         """
-
         if signed_message.is_signed:
             message_JSON = signed_message.message.to_JSON()
             message_binary = message_JSON.encode()

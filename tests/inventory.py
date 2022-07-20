@@ -1,6 +1,6 @@
-from node import Node
-from server import Server
-from inventory import Inventory
+from lynx.node import Node
+from lynx.server import Server
+from lynx.inventory import Inventory
 
 
 def test_inventory():

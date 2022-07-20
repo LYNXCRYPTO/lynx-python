@@ -1,7 +1,7 @@
-from node import Node
-from account import Account
-from message import Message
-from utilities import Utilities
+from lynx.node import Node
+from lynx.account import Account
+from lynx.message import Message
+from lynx.utilities import Utilities
 import threading
 
 

@@ -1,5 +1,5 @@
 import argparse
-from heartbeat import heartbeat
+from lynx.heartbeat import heartbeat
 
 # Command Line Arguments
 # host: target host to send PING
@@ -17,7 +17,6 @@ def test_heartbeat():
         print("PONG received in ", time, "ms")
     else:
         print("Connection timeout, PONG not received within 2000 ms")
-
 
 
 if __name__ == "__main__":
