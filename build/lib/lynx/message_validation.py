@@ -1,6 +1,6 @@
 # message.py
 
-from lynx.message import Message
+from message import Message
 
 
 class MessageValidation:

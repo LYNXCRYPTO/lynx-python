@@ -1,16 +1,16 @@
 from __future__ import annotations
-from lynx.peer import Peer
-from lynx.message import Message
-from lynx.message_validation import MessageValidation
-from lynx.state import State
-from lynx.utilities import Utilities
+from peer import Peer
+from message import Message
+from message_validation import MessageValidation
+from state import State
+from utilities import Utilities
 from os import listdir
 from os.path import exists
 import json
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from lynx.node import Node, PeerConnection
-    from lynx.server import Server
+    from node import Node, PeerConnection
+    from server import Server
 
 
 class Response:

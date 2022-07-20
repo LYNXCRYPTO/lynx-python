@@ -1,13 +1,14 @@
 # node.py
 
-from lynx.account import Account
-from lynx.server import Server
-from lynx.peer import Peer
-from lynx.peer_connection import PeerConnection
-from lynx.message import Message, SignedMessage
-from lynx.utilities import Utilities
+from account import Account
+from server import Server
+from peer import Peer
+from peer_connection import PeerConnection
+from message import Message, SignedMessage
+from utilities import Utilities
 import uuid
-from lynx.constants import *
+from constants import *
+from hashlib import sha3_256
 import threading
 import time
 import traceback

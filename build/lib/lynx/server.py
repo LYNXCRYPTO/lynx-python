@@ -3,15 +3,15 @@ import socket
 import time
 import threading
 import traceback
-import requests
-from lynx.peer import Peer
-from lynx.inventory import Inventory
-from lynx.peer_connection import PeerConnection
-from lynx.request import Request
-from lynx.response import Response
-from lynx.message import Message
-from lynx.constants import PROTOCOL_VERSION, NODE_SERVICES, SUB_VERSION
-from lynx.utilities import Utilities
+from account import Account
+from peer import Peer
+from inventory import Inventory
+from peer_connection import PeerConnection
+from request import Request
+from response import Response
+from message import Message
+from constants import PROTOCOL_VERSION, NODE_SERVICES, SUB_VERSION
+from utilities import Utilities
 
 
 def display_debug(msg):
@@ -78,8 +78,10 @@ class Server:
         the local machine's IP address.
         """
         print("Configuring IP Address...")
-        ip_request = requests.request('GET', 'http://myip.dnsomatic.com')
-        self.host = ip_request.text
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        server_socket.connect(('8.8.8.8', 80))
+        self.host = server_socket.getsockname()[0]
+        server_socket.close()
 
     # ------------------------------------------------------------------------------
     def send_version_request(self, peer: Peer):
