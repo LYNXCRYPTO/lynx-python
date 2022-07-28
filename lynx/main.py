@@ -1,16 +1,11 @@
-
 from node import Node
-
-
-def hello(peer_connection, message_data):
-    print(message_data)
+from account import Account
+from message import Message
+import threading
 
 
 def main():
-    node = Node(max_peers=12, server_port="6969",
-                node_id="12345")
-    # node.add_handler(message_type="HELL", handler=hello)
-    # node.start_server_listen()
+    pass
 
 
 if __name__ == "__main__":

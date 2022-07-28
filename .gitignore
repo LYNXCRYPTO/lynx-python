@@ -1,1 +1,6 @@
-known_peers.dat
+
+.vscode/
+interview_question.py
+known_peers.json
+__pycache__/
+ *.pyc
