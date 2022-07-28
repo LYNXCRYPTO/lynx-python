@@ -1,11 +1,11 @@
-from gettext import install
 from setuptools import setup, find_packages
 
 deps = {
     'lynx': [
-        "eth-typing>=3.1.0,<4.0.0",
-        "eth-utils>=2.0.0,<3.0.0",
-        "rlp>=3,<4",
+        "py-evm @ git+https://github.com/jordanlesson/py-evm.git@4a95d8754c42972773b43941945025696e5592d6",
+        "eth-typing>=2.2.0,<4.0.0",
+        "eth-utils>=1.9.4,<3.0.0",
+        "rlp>=2,<4",
         "hdwallet>=1.16.0,<2.1.1",
     ],
     # The eth-extra sections is for libraries that the evm does not

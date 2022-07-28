@@ -5,7 +5,6 @@ from hdwallet.cryptocurrencies import EthereumMainnet, BitcoinMainnet
 from hdwallet.derivations import BIP44Derivation
 from hdwallet.utils import generate_mnemonic
 from ecdsa import SigningKey, VerifyingKey, SECP256k1
-from pycoin.ecdsa import Generator, Curve
 from hashlib import sha256
 from typing import Optional
 
