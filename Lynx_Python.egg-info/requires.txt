@@ -1,4 +1,5 @@
-eth-typing<4.0.0,>=3.1.0
-eth-utils<3.0.0,>=2.0.0
-rlp<4,>=3
+py-evm@ git+https://github.com/jordanlesson/py-evm.git@4a95d8754c42972773b43941945025696e5592d6
+eth-typing<4.0.0,>=2.2.0
+eth-utils<3.0.0,>=1.9.4
+rlp<4,>=2
 hdwallet<2.1.1,>=1.16.0
