@@ -72,8 +72,7 @@ contract Validating {
             "Sender does not have a sufficient amount staked currently..."
         );
 
-        uint256 stake = validators[msg.sender];
-        (bool success, ) = _to.call{value: stake}("");
+        (bool success, ) = _to.call{value: _amount}("");
         require(success, "Withdraw failed...");
 
         removeStake(msg.sender, _amount);
