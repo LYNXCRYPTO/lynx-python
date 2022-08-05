@@ -1,4 +1,7 @@
-from base58 import BITCOIN_ALPHABET
+from typing import (
+    Any,
+)
+import rlp
 from lynx.message import Message, SignedMessage
 from hdwallet import BIP44HDWallet
 from hdwallet.cryptocurrencies import EthereumMainnet, BitcoinMainnet
@@ -43,21 +46,31 @@ class Wallet:
         bip44_hdwallet.clean_derivation()
 
 
-    def sha256_hash(self, msg: str) -> bytes:
-        return sha256(msg.encode("utf8")).digest()
+    def sha256_hash(self, msg: Any) -> bytes:
+
+        if isinstance(msg, str):
+            return sha256(msg.encode("utf8")).digest()
+        elif isinstance(msg, int):
+            return sha256(msg.to_bytes(256, 'big')).digest()
+        elif isinstance(msg, bytes):
+            return sha256(msg).digest()
 
 
-    def sign(self, msg: str) -> str:
+    def sign(self, msg: Any) -> str:
         """Signs a message using ECDSA and returns the 
         signature with the message as a string representing
         the signature.
         """
 
-        msg_hash_bytes : bytes = self.sha256_hash(msg)
+        rlp_msg = rlp.encode(msg)
+        msg_hash_bytes : bytes = self.sha256_hash(rlp_msg)
         signing_key : SigningKey = SigningKey.from_string(self.signing_key, curve=SECP256k1, hashfunc=sha256)
         signature_bytes = signing_key.sign_deterministic(msg_hash_bytes)
-        print(f'Signature: {signature_bytes.hex()}')
+
+        # print(f'Signature: 0x{signature_bytes.hex()}')
+        # print(f'Signature as Decimal Number: {int.from_bytes(bytes=signature_bytes, byteorder="big")}')
         
-        verifying_key : VerifyingKey = VerifyingKey.from_string(bytes.fromhex(self.pub_key), curve=SECP256k1, hashfunc=sha256)
-        print(verifying_key.verify(signature=signature_bytes, data=msg_hash_bytes, hashfunc=sha256))
-        pass
+        # verifying_key : VerifyingKey = VerifyingKey.from_string(bytes.fromhex(self.pub_key), curve=SECP256k1, hashfunc=sha256)
+        # print(verifying_key.verify(signature=signature_bytes, data=msg_hash_bytes, hashfunc=sha256))
+        
+        return signature_bytes

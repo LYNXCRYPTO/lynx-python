@@ -16,4 +16,4 @@ class Generator:
             count += 1
         end = time.time()
         print(
-            f"It took {int((end - start) * 1000)} ms to calculate t={t} steps")
+            f"It took {int((end - start) * 1000)} ms to calculate t={t} steps of hashing")
