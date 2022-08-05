@@ -75,8 +75,6 @@ contract Validating {
         removeStake(msg.sender, _amount);
 
         (bool success, ) = _to.call{value: _amount}("");
-        if (!success) {
-            revert("Withdraw failed...");
-        }
+        require(success, "Withdraw failed...");
     }
 }
