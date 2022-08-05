@@ -27,15 +27,14 @@ class VDF:
         return (rsa_key.n, a, t, ciphertext, sig_ciphertext)
 
     @classmethod
-    def sequential_squaring(self, n: int, a: int, t: int):
+    def sequential_squaring(self, n: int, a: int, t: int) -> int:
 
         b = pow(a, pow(2, t), n)
-        pi = log(b, a) % n
 
-        return (b, pi)
+        return b
 
     @classmethod
-    def verify_vdf(self):
+    def verify(self,):
         pass
 
     

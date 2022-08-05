@@ -2,11 +2,12 @@ from setuptools import setup, find_packages
 
 deps = {
     'lynx': [
-        "py-evm @ git+https://github.com/jordanlesson/py-evm.git@4a95d8754c42972773b43941945025696e5592d6",
+        "py-evm @ git+https://github.com/jordanlesson/py-evm.git@8008952fb2470d0f33d0578689275325ba282002",
         "eth-typing>=2.2.0,<4.0.0",
         "eth-utils>=1.9.4,<3.0.0",
         "rlp>=2,<4",
         "hdwallet>=1.16.0,<2.1.1",
+        "python-snappy==0.6.1"
     ],
     # The eth-extra sections is for libraries that the evm does not
     # explicitly need to function and hence should not depend on.
