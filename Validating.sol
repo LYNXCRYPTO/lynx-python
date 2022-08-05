@@ -20,11 +20,12 @@ contract Validating {
     }
 
     function addStake(address _validator, uint256 _amount) public {
-        validators[_validator] += _amount;
+        bool isValidating = isValidator(_validator);
 
+        validators[_validator] += _amount;
         totalStaked += _amount;
 
-        if (isValidator(_validator)) {
+        if (isValidating) {
             emit ValidatorIncreasedStake(_validator, _amount);
         } else {
             emit ValidatorAdded(_validator, _amount);
@@ -68,7 +69,7 @@ contract Validating {
         );
         require(
             _amount <= validators[msg.sender],
-            "Sender does not have a sufficient stake..."
+            "Sender does not have a sufficient amount staked currently..."
         );
 
         uint256 stake = validators[msg.sender];
