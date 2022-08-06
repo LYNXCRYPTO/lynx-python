@@ -59,7 +59,7 @@ contract DPOS {
             validators[_validator].stake > 0;
     }
 
-    function addValidator(address _validator, uint256 _amount) public {
+    function addValidator(address _validator, uint256 _amount) private {
         Types.Validator memory newValidator = Types.Validator(
             _validator,
             _amount,
@@ -75,19 +75,19 @@ contract DPOS {
         emit ValidatorAdded(_validator, _amount);
     }
 
-    function addStake(address _validator, uint256 _amount) public {
+    function addStake(address _validator, uint256 _amount) private {
         validators[_validator].stake += _amount;
         addTotalStaked(_amount);
         emit ValidatorIncreasedStake(_validator, _amount);
     }
 
-    function subtractStake(address _validator, uint256 _amount) public {
+    function subtractStake(address _validator, uint256 _amount) private {
         validators[_validator].stake -= _amount;
         substractTotalStaked(_amount);
         emit ValidatorDecreasedStake(_validator, _amount);
     }
 
-    function removeValidator(address _validator, uint256 _amount) public {
+    function removeValidator(address _validator, uint256 _amount) private {
         delete validators[_validator];
         substractTotalStaked(_amount);
         numValidators--;
@@ -102,30 +102,30 @@ contract DPOS {
         return totalStaked;
     }
 
-    function addTotalBonded(uint256 _amount) public {
+    function addTotalBonded(uint256 _amount) private {
         totalBonded += _amount;
     }
 
-    function subtractTotalBonded(uint256 _amount) public {
+    function subtractTotalBonded(uint256 _amount) private {
         totalBonded -= _amount;
     }
 
-    function addTotalStaked(uint256 _amount) public {
+    function addTotalStaked(uint256 _amount) private {
         totalStaked += _amount;
         addTotalBonded(_amount);
     }
 
-    function substractTotalStaked(uint256 _amount) public {
+    function substractTotalStaked(uint256 _amount) private {
         totalStaked -= _amount;
         subtractTotalBonded(_amount);
     }
 
-    function addTotalDelegatedStaked(uint256 _amount) public {
+    function addTotalDelegatedStaked(uint256 _amount) private {
         totalStakeDelegated += _amount;
         addTotalBonded(_amount);
     }
 
-    function substractTotalDelegatedStaked(uint256 _amount) public {
+    function substractTotalDelegatedStaked(uint256 _amount) private {
         totalStakeDelegated -= _amount;
         subtractTotalBonded(_amount);
     }
@@ -180,7 +180,7 @@ contract DPOS {
         address _delegator,
         address _validator,
         uint256 _amount
-    ) public {
+    ) private {
         validators[_validator].delegators.push(_delegator);
         validators[_validator].delegatedStake += _amount;
         validators[_validator].totalStake += _amount;
@@ -190,7 +190,7 @@ contract DPOS {
         address _delegator,
         address _validator,
         uint256 _amount
-    ) public {
+    ) private {
         Types.Delegator storage newDelegator = delegators[_delegator];
 
         newDelegator.addr = _delegator;
@@ -209,7 +209,7 @@ contract DPOS {
         address _delegator,
         address _validator,
         uint256 _amount
-    ) public {
+    ) private {
         uint256 numOfDelegators = validators[_validator].delegators.length;
         for (uint64 i; i < numOfDelegators; i++) {
             if (_delegator == validators[_validator].delegators[i]) {
@@ -230,7 +230,7 @@ contract DPOS {
         emit DelegatorDecreasedStake(_delegator, _validator, _amount);
     }
 
-    function removeDelegator(address _delegator, uint256 _amount) public {
+    function removeDelegator(address _delegator, uint256 _amount) private {
         delete delegators[_delegator];
         substractTotalDelegatedStaked(_amount);
         numDelegators--;
@@ -241,7 +241,7 @@ contract DPOS {
         address _delegator,
         address _validator,
         uint256 _amount
-    ) public {
+    ) private {
         delegators[_delegator].delegatedValidators[_validator] += _amount;
         delegators[_delegator].totalDelegatedStake += _amount;
 
