@@ -17,7 +17,7 @@ library Types {
     }
 }
 
-contract Validating {
+contract DPOS {
     // State variables that will be permanently stored in the blockchain
     uint256 public totalStaked;
     uint256 public totalStakeDelegated;
