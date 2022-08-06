@@ -140,7 +140,7 @@ contract Validating {
         }
     }
 
-    function withdrawStake(address payable _to, uint256 _amount) public {
+    function withdrawStake(address _to, uint256 _amount) public {
         require(
             isValidator(msg.sender),
             "Sender is not currently a validator..."
@@ -149,6 +149,7 @@ contract Validating {
             _amount > validators[msg.sender].stake,
             "Sender does not have a sufficient amount staked currently..."
         );
+        require(payable(_to).send(0), "To address is not payable...");
 
         uint256 stake = validators[msg.sender].stake;
         if (_amount < stake) {
@@ -167,41 +168,51 @@ contract Validating {
             validators[_delegator].delegatedStake > 0;
     }
 
-    function isValidatorDelegated(address _validator)
+    function isValidatorDelegated(address _delegator, address _validator)
         public
         view
         returns (bool)
     {
-        return delegators[msg.sender].delegatedValidators[_validator] > 0;
+        return delegators[_delegator].delegatedValidators[_validator] > 0;
     }
 
-    function delegateStake(address _validator, uint256 _amount) public {
-        validators[_validator].delegators.push(msg.sender);
+    function delegateStake(
+        address _delegator,
+        address _validator,
+        uint256 _amount
+    ) public {
+        validators[_validator].delegators.push(_delegator);
         validators[_validator].delegatedStake += _amount;
         validators[_validator].totalStake += _amount;
     }
 
-    function addDelegator(address _validator, uint256 _amount) public {
-        Types.Delegator storage newDelegator = delegators[msg.sender];
+    function addDelegator(
+        address _delegator,
+        address _validator,
+        uint256 _amount
+    ) public {
+        Types.Delegator storage newDelegator = delegators[_delegator];
 
-        newDelegator.addr = msg.sender;
+        newDelegator.addr = _delegator;
         newDelegator.totalDelegatedStake = _amount;
         newDelegator.delegatedValidators[_validator] = _amount;
 
-        delegateStake(_validator, _amount);
+        delegateStake(_delegator, _validator, _amount);
 
         addTotalDelegatedStaked(_amount);
         numDelegators++;
 
-        emit DelegatorAdded(msg.sender, _validator, _amount);
+        emit DelegatorAdded(_delegator, _validator, _amount);
     }
 
-    function subtractDelegatedStake(address _validator, uint256 _amount)
-        public
-    {
+    function subtractDelegatedStake(
+        address _delegator,
+        address _validator,
+        uint256 _amount
+    ) public {
         uint256 numOfDelegators = validators[_validator].delegators.length;
         for (uint64 i; i < numOfDelegators; i++) {
-            if (msg.sender == validators[_validator].delegators[i]) {
+            if (_delegator == validators[_validator].delegators[i]) {
                 validators[_validator].delegators[i] = validators[_validator]
                     .delegators[numOfDelegators - 1];
                 validators[_validator].delegators.pop();
@@ -211,30 +222,34 @@ contract Validating {
         validators[_validator].delegatedStake -= _amount;
         validators[_validator].totalStake -= _amount;
 
-        delegators[msg.sender].delegatedValidators[_validator] -= _amount;
-        delegators[msg.sender].totalDelegatedStake -= _amount;
+        delegators[_delegator].delegatedValidators[_validator] -= _amount;
+        delegators[_delegator].totalDelegatedStake -= _amount;
 
         substractTotalDelegatedStaked(_amount);
 
-        emit DelegatorDecreasedStake(msg.sender, _validator, _amount);
+        emit DelegatorDecreasedStake(_delegator, _validator, _amount);
     }
 
-    function removeDelegator(uint256 _amount) public {
-        delete delegators[msg.sender];
+    function removeDelegator(address _delegator, uint256 _amount) public {
+        delete delegators[_delegator];
         substractTotalDelegatedStaked(_amount);
         numDelegators--;
-        emit DelegatorRemoved(msg.sender, _amount);
+        emit DelegatorRemoved(_delegator, _amount);
     }
 
-    function addDelegatedStake(address _validator, uint256 _amount) public {
-        delegators[msg.sender].delegatedValidators[_validator] += _amount;
-        delegators[msg.sender].totalDelegatedStake += _amount;
+    function addDelegatedStake(
+        address _delegator,
+        address _validator,
+        uint256 _amount
+    ) public {
+        delegators[_delegator].delegatedValidators[_validator] += _amount;
+        delegators[_delegator].totalDelegatedStake += _amount;
 
-        delegateStake(_validator, _amount);
+        delegateStake(_delegator, _validator, _amount);
 
         addTotalDelegatedStaked(_amount);
 
-        emit DelegatorIncreasedStake(msg.sender, _validator, _amount);
+        emit DelegatorIncreasedStake(_delegator, _validator, _amount);
     }
 
     function depositDelegatedStake(address _validatorToStake, uint256 _amount)
@@ -246,17 +261,17 @@ contract Validating {
             "Can't delegate stake because validator doesn't exist..."
         );
 
-        bool isDelegating = isValidatorDelegated(_validatorToStake);
+        bool isDelegating = isValidatorDelegated(msg.sender, _validatorToStake);
 
         if (isDelegating) {
-            addDelegatedStake(_validatorToStake, _amount);
+            addDelegatedStake(msg.sender, _validatorToStake, _amount);
         } else {
-            addDelegator(_validatorToStake, _amount);
+            addDelegator(msg.sender, _validatorToStake, _amount);
         }
     }
 
     function withdrawDelegatedStake(
-        address payable _to,
+        address _to,
         address _validator,
         uint256 _amount
     ) public {
@@ -266,22 +281,23 @@ contract Validating {
         );
         require(
             isValidator(_validator),
-            "Can't withdraw delegated stake becase validator is not currently validating"
+            "Can't withdraw delegated stake becase validator is not currently validating..."
         );
         require(
-            isValidatorDelegated(_validator),
-            "Can't withdraw delegated stake because sender is not currently delegating to the specified validator"
+            isValidatorDelegated(msg.sender, _validator),
+            "Can't withdraw delegated stake because sender is not currently delegating to the specified validator..."
         );
         require(
             _amount > validators[msg.sender].stake,
             "Sender does not have a sufficient amount of stake delegated currently..."
         );
+        require(payable(_to).send(0), "To address is not payable...");
 
         uint256 delegatedStake = delegators[msg.sender].totalDelegatedStake;
         if (_amount < delegatedStake) {
-            subtractDelegatedStake(msg.sender, _amount);
+            subtractDelegatedStake(msg.sender, _validator, _amount);
         } else {
-            removeDelegator(delegatedStake);
+            removeDelegator(msg.sender, delegatedStake);
         }
 
         (bool success, ) = _to.call{value: _amount}("");
