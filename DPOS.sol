@@ -140,7 +140,7 @@ contract DPOS {
         }
     }
 
-    function withdrawStake(address _to, uint256 _amount) public {
+    function withdrawStake(address _to, uint256 _amount) public payable {
         require(
             isValidator(msg.sender),
             "Sender is not currently a validator..."
@@ -274,7 +274,7 @@ contract DPOS {
         address _to,
         address _validator,
         uint256 _amount
-    ) public {
+    ) public payable {
         require(
             isDelegator(msg.sender),
             "Sender is not currently a delegator..."
