@@ -2,12 +2,19 @@
 pragma solidity >=0.8.15;
 
 library Types {
+    struct Allegation {
+        mapping(address => uint256) witnesses; // Mapping of reporter's address to the timestamp of when they reported it
+        uint256 numWitnesses;
+        uint256 totalStakeOfWitnesses;
+    }
+
     struct Validator {
         address addr;
         uint256 stake;
         uint256 delegatedStake;
         uint256 totalStake;
         address[] delegators;
+        mapping(uint256 => Allegation) allegations; // Mapping of block number to any allegations
     }
 
     struct Delegator {
@@ -18,20 +25,38 @@ library Types {
 }
 
 contract DPOS {
-    // State variables that will be permanently stored in the blockchain
     uint256 public totalStaked;
     uint256 public totalStakeDelegated;
-    uint256 public totalBonded;
-    uint256 public numValidators;
-    uint256 public numDelegators;
-    mapping(address => Types.Validator) internal validators;
-    mapping(address => Types.Delegator) internal delegators;
+    uint256 public totalBonded; // totalStake + totalStakeDelegated
+    mapping(uint256 => uint256) public numValidators; // Mapping of block number to number of validators at that time
+    mapping(uint256 => uint256) public numDelegators; // Mapping of block number to number of delegators at that time
+    mapping(address => Types.Validator) public validators;
+    mapping(address => Types.Delegator) public delegators;
 
-    // Events that will be emitted on changes
+    // State variables which can be voted upon
+    uint256 public penaltyThreshold; // The amount of reports needed to penalize a validator
+    uint256 public penalty; // The percent of a validator's stake to be slashed
+    uint64 public decisionThreshold; // The number of consecutive successes required for a block to be finalized
+    uint64 public slotSize; // The number of blocks included in each slot
+    uint64 public epochSize; // The number of slots included in each epoch
+
+    // Events to be emitted on changes made to the validator set
     event ValidatorAdded(address validator, uint256 stake);
     event ValidatorIncreasedStake(address validator, uint256 stakeIncrease);
     event ValidatorDecreasedStake(address validator, uint256 stakeDecrease);
     event ValidatorRemoved(address validator, uint256 stake);
+    event ValidatorReported(
+        address reporter,
+        address validator,
+        uint256 blockNumber
+    );
+    event ValidatorPenalized(
+        address validator,
+        uint256 blockNumber,
+        uint256 penalty
+    );
+
+    // Events to be emitted on changes made to the delegator set
     event DelegatorAdded(address delegator, address validator, uint256 stake);
     event DelegatorIncreasedStake(
         address delegator,
@@ -44,13 +69,21 @@ contract DPOS {
         uint256 stake
     );
     event DelegatorRemoved(address delegator, uint256 stake);
+    event DelegatorPenalized(address delegator, uint256 penalty);
 
     constructor() {
-        totalStaked = 0;
-        totalStakeDelegated = 0;
-        totalBonded = 0;
-        numValidators = 0;
-        numDelegators = 0;
+        // Initialing state variables which can be voted upon
+        // by validators
+
+        slotSize = 10; // 10 blocks per slot
+        epochSize = 10; // 10 slots per epoch
+
+        decisionThreshold = 20; // 20 consecutive successes required for a block to be finalized
+
+        // Because Solidity only allows for integer division, we use a int
+        // that is 0 < x <= 100,000 to represent a decimal with three decimal places.
+        penaltyThreshold = 66666; // 66.666% penalty threshold
+        penalty = 2000; // 2.000% penalty enforced
     }
 
     function isValidator(address _validator) public view returns (bool) {
@@ -60,17 +93,13 @@ contract DPOS {
     }
 
     function addValidator(address _validator, uint256 _amount) private {
-        Types.Validator memory newValidator = Types.Validator(
-            _validator,
-            _amount,
-            0,
-            _amount,
-            new address[](0)
-        );
-        validators[_validator] = newValidator;
+        validators[_validator].addr = _validator;
+        validators[_validator].stake = _amount;
+        validators[_validator].delegatedStake = 0;
+        validators[_validator].totalStake = _amount;
 
         addTotalStaked(_amount);
-        numValidators++;
+        numValidators[block.number + 1]++;
 
         emit ValidatorAdded(_validator, _amount);
     }
@@ -90,11 +119,15 @@ contract DPOS {
     function removeValidator(address _validator, uint256 _amount) private {
         delete validators[_validator];
         substractTotalStaked(_amount);
-        numValidators--;
+        numValidators[block.number + 1]--;
         emit ValidatorRemoved(_validator, _amount);
     }
 
-    function stakeOf(address _validator) public view returns (uint256) {
+    function getStakeOf(address _validator) public view returns (uint256) {
+        require(
+            isValidator(_validator),
+            "Provided validator isn't validing currently..."
+        );
         return validators[_validator].stake;
     }
 
@@ -173,7 +206,47 @@ contract DPOS {
         view
         returns (bool)
     {
+        require(
+            isDelegator(_delegator),
+            "Provided delegator isn't delegating currently..."
+        );
+        require(
+            isValidator(_validator),
+            "Provided delegator isn't delegating currently..."
+        );
         return delegators[_delegator].delegatedValidators[_validator] > 0;
+    }
+
+    function getTotalDelegatedStakeOf(address _delegator)
+        public
+        view
+        returns (uint256)
+    {
+        require(
+            isDelegator(_delegator),
+            "Provided delegator is not currently validating..."
+        );
+        return delegators[_delegator].totalDelegatedStake;
+    }
+
+    function getDelegatedStakeOf(address _delegator, address _validator)
+        public
+        view
+        returns (uint256)
+    {
+        require(
+            isDelegator(_delegator),
+            "Provided delegator is not currently validating..."
+        );
+        require(
+            isValidator(_validator),
+            "Provided validator is not currently validating..."
+        );
+        require(
+            isValidatorDelegated(_delegator, _validator),
+            "Delegator is not currently delegated to the provided validator..."
+        );
+        return delegators[_delegator].delegatedValidators[_validator];
     }
 
     function delegateStake(
@@ -191,16 +264,14 @@ contract DPOS {
         address _validator,
         uint256 _amount
     ) private {
-        Types.Delegator storage newDelegator = delegators[_delegator];
-
-        newDelegator.addr = _delegator;
-        newDelegator.totalDelegatedStake = _amount;
-        newDelegator.delegatedValidators[_validator] = _amount;
-
         delegateStake(_delegator, _validator, _amount);
 
+        delegators[_delegator].addr = _delegator;
+        delegators[_delegator].totalDelegatedStake = _amount;
+        delegators[_delegator].delegatedValidators[_validator] = _amount;
+
         addTotalDelegatedStaked(_amount);
-        numDelegators++;
+        numDelegators[block.number + 1]++;
 
         emit DelegatorAdded(_delegator, _validator, _amount);
     }
@@ -233,7 +304,7 @@ contract DPOS {
     function removeDelegator(address _delegator, uint256 _amount) private {
         delete delegators[_delegator];
         substractTotalDelegatedStaked(_amount);
-        numDelegators--;
+        numDelegators[block.number + 1]--;
         emit DelegatorRemoved(_delegator, _amount);
     }
 
@@ -302,5 +373,78 @@ contract DPOS {
 
         (bool success, ) = _to.call{value: _amount}("");
         require(success, "Withdraw failed...");
+    }
+
+    function isReported(
+        address accuser,
+        address _validator,
+        uint256 blockNumber
+    ) public view returns (bool) {
+        return
+            validators[_validator].allegations[blockNumber].witnesses[
+                accuser
+            ] != 0;
+    }
+
+    function penalizeValidator(address _validator, uint256 blockNumber)
+        private
+    {
+        uint256 validatorPenalty = (getStakeOf(_validator) * penalty) / 100000;
+        subtractStake(_validator, validatorPenalty);
+
+        uint256 numDelegatorsToValidator = validators[_validator]
+            .delegators
+            .length;
+
+        for (uint256 i = 0; i < numDelegatorsToValidator; i++) {
+            address delegator = validators[_validator].delegators[i];
+            uint256 delegatorPenalty = getDelegatedStakeOf(
+                delegator,
+                _validator
+            );
+            subtractDelegatedStake(delegator, _validator, delegatorPenalty);
+        }
+
+        emit ValidatorPenalized(_validator, blockNumber, validatorPenalty);
+    }
+
+    function accuseValidator(address _validator, uint256 blockNumber)
+        public
+        payable
+    {
+        require(
+            isValidator(msg.sender),
+            "Non-validators can't report validators..."
+        );
+        require(
+            isValidator(_validator),
+            "Provided validator is not currently validating..."
+        );
+        require(
+            !isReported(msg.sender, _validator, blockNumber),
+            "Can't report a validator twice for the same block..."
+        );
+        require(
+            block.number - blockNumber < decisionThreshold,
+            "Block has been finalized and is unable to be reported anymore..."
+        );
+
+        validators[_validator].allegations[blockNumber].witnesses[
+            msg.sender
+        ] = block.timestamp;
+        validators[_validator]
+            .allegations[blockNumber]
+            .totalStakeOfWitnesses += getStakeOf(msg.sender);
+        validators[_validator].allegations[blockNumber].numWitnesses++;
+
+        uint256 totalStakeOfWitnesses = validators[_validator]
+            .allegations[blockNumber]
+            .totalStakeOfWitnesses;
+
+        // If the percentage of validator's stake that reported this user is
+        // greater than the voted upon threshold, then the user should be penalized.
+        if ((totalStakeOfWitnesses * 100000) / totalStaked > penaltyThreshold) {
+            penalizeValidator(_validator, blockNumber);
+        }
     }
 }
