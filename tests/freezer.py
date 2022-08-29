@@ -1,9 +1,18 @@
 from lynx.freezer import Freezer
-from lynx.blockchain import Blockchain, RECEIVER, SENDER_PRIVATE_KEY
+from lynx.blockchain import RECEIVER, SENDER_PRIVATE_KEY, GENESIS_BLOCK_NUMBER, GENESIS_PARAMS, GENESIS_STATE
 from eth.vm.forks.lynx.blocks import LynxBlock
+from eth.vm.forks.lynx import LynxVM
+from eth.chains.lynx import LynxChain
+from eth.db.atomic import AtomicDB
 
 def test_freezer():
-    blockchain : Blockchain = Blockchain.create_blockchain()
+    blockchain_config = LynxChain.configure(
+            __name__='LynxChain',
+            vm_configuration=((GENESIS_BLOCK_NUMBER, LynxVM),
+        )   
+    )
+        
+    blockchain : LynxChain = blockchain_config.from_genesis(AtomicDB(), GENESIS_PARAMS, GENESIS_STATE) # pylint: disable=no-member
     
     genesis : LynxBlock = blockchain.get_canonical_block_by_number(0)
 
@@ -24,11 +33,11 @@ def test_freezer():
 
     blockchain.set_header_timestamp(genesis.header.timestamp + 1)
 
-    block_result = blockchain.get_vm().finalize_block(blockchain.get_block())
-    block = block_result.block
-    print(block)
+    vm : LynxVM = blockchain.get_vm()
 
-    blockchain.persist_block(block, perform_validation=True)
+    block = blockchain.get_block()
+
+    blockchain.forge_block()
 
     Freezer.store_block(block, blockchain.chaindb)
 

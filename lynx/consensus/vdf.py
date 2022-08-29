@@ -8,15 +8,17 @@ class VDF:
 
     @classmethod
     def create_vdf(self, a: int, t: int, data: str):
-        rsa_key : RSA.RsaKey = RSA.generate(bits=1024)
+        rsa_key = RSA.generate(bits=1024)
         
         phi = (rsa_key.p - 1) * (rsa_key.q - 1) # phi should be included in cipher and block
         random_key = rsa_key.d
         key = b'Sixteen byte key'
 
-        cipher = AES.new(key, AES.MODE_GCM)
-        nonce = cipher.nonce
-        ciphertext, tag = cipher.encrypt_and_digest(data.encode())
+        # Figure out which mode to use
+        cipher = AES.new(key, AES.MODE_ECB)
+        # Figure out if nonce is needed
+        nonce = cipher
+        ciphertext, tag = cipher.encrypt(data)
         print(nonce)
         print(tag)
 

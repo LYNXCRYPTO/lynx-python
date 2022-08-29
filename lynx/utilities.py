@@ -17,18 +17,6 @@ class Utilities:
         """Prints a message to the screen with the name of the current thread"""
         print(msg)
 
-    @classmethod
-    # ------------------------------------------------------------------------------
-    def init_accounts(self) -> None:
-        # --------------------------------------------------------------------------
-        """Creates a transactions directory if it does not already exist."""
-
-        try:
-            if not exists('../accounts/'):
-                self.__debug('Initializing Accounts Folder...')
-                makedirs('../accounts/')
-        except:
-            self.__debug('Unable to initialize transactions folder.')
 
     @classmethod
     # ------------------------------------------------------------------------------

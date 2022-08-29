@@ -1,5 +1,5 @@
-from lynx.account import Account
-import ecdsa
+from eth_typing import BlockNumber
+from lynx.wallet import Wallet
 
 
 class VRF:
@@ -10,6 +10,19 @@ class VRF:
     """
 
     @classmethod
-    def generate_random_number(self, account: Account) -> int:
+    def generate_random_number(self, block_number: BlockNumber, stake: int, wallet: Wallet) -> int:
+        """Generates a psuedorandom number based on an account's
+        private keys. Uses the Wallet object to manage the account's
+        private keys.
+        """
+        
+        signature = wallet.sign(block_number)
 
-        return 0
+        rand_num = int.from_bytes(signature, 'big') * stake
+
+        return rand_num
+
+
+        
+
+

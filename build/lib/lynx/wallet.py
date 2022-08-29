@@ -1,17 +1,21 @@
-from inspect import Signature
+from typing import (
+    Any,
+)
+import rlp
 from lynx.message import Message, SignedMessage
 from hdwallet import BIP44HDWallet
-from hdwallet.cryptocurrencies import EthereumMainnet
+from hdwallet.cryptocurrencies import EthereumMainnet, BitcoinMainnet
 from hdwallet.derivations import BIP44Derivation
 from hdwallet.utils import generate_mnemonic
 from ecdsa import SigningKey, VerifyingKey, SECP256k1
+from hashlib import sha256
 from typing import Optional
 
 
 class Wallet:
 
     def __init__(self):
-        MNEMONIC: str = generate_mnemonic(language="english", strength=160)
+        MNEMONIC: str = generate_mnemonic(language="english", strength=256)
         PASSPHRASE: Optional[str] = None
 
         bip44_hdwallet: BIP44HDWallet = BIP44HDWallet(
@@ -23,13 +27,12 @@ class Wallet:
         print("Mnemonic:", bip44_hdwallet.mnemonic())
         print("Base HD Path:  m/44'/60'/0'/0/0")
 
-        bip44_derivation: BIP44Derivation = BIP44Derivation(
-            cryptocurrency=EthereumMainnet, account=0, change=False, address=0)
+        bip44_derivation: BIP44Derivation = BIP44Derivation(cryptocurrency=EthereumMainnet)
         bip44_hdwallet.from_path(path=bip44_derivation)
 
         self.pub_key = bip44_hdwallet.public_key()
         self.priv_key = bip44_hdwallet.private_key()
-        self.signing_key = bytearray.fromhex(self.priv_key)
+        self.signing_key = bytes.fromhex(self.priv_key)
         self.address = bip44_hdwallet.address()
 
         print('Account Created!')
@@ -42,18 +45,32 @@ class Wallet:
         print("Signing Key: %s" % self.signing_key)
         bip44_hdwallet.clean_derivation()
 
-    def sign_message(self, message: Message) -> SignedMessage:
-        """Signs a message using ECDSA and returns 
-        the signature with the message as a SignedMessage object.
+
+    def sha256_hash(self, msg: Any) -> bytes:
+
+        if isinstance(msg, str):
+            return sha256(msg.encode("utf8")).digest()
+        elif isinstance(msg, int):
+            return sha256(msg.to_bytes(256, 'big')).digest()
+        elif isinstance(msg, bytes):
+            return sha256(msg).digest()
+
+
+    def sign(self, msg: Any) -> str:
+        """Signs a message using ECDSA and returns the 
+        signature with the message as a string representing
+        the signature.
         """
 
-        message_JSON = message.to_JSON()
-        message_binary = message_JSON.encode()
+        rlp_msg = rlp.encode(msg)
+        msg_hash_bytes : bytes = self.sha256_hash(rlp_msg)
+        signing_key : SigningKey = SigningKey.from_string(self.signing_key, curve=SECP256k1, hashfunc=sha256)
+        signature_bytes = signing_key.sign_deterministic(msg_hash_bytes)
 
-        signing_key = SigningKey.from_string(bytes.fromhex(self.priv_key), curve=SECP256k1)
-        signature_bytes = signing_key.sign(message_JSON)
-        signature = signature_bytes.decode()
-        self.__debug('Signature: %s' % hex(signature))
-
-        # return signed_message
-        pass
+        # print(f'Signature: 0x{signature_bytes.hex()}')
+        # print(f'Signature as Decimal Number: {int.from_bytes(bytes=signature_bytes, byteorder="big")}')
+        
+        # verifying_key : VerifyingKey = VerifyingKey.from_string(bytes.fromhex(self.pub_key), curve=SECP256k1, hashfunc=sha256)
+        # print(verifying_key.verify(signature=signature_bytes, data=msg_hash_bytes, hashfunc=sha256))
+        
+        return signature_bytes
