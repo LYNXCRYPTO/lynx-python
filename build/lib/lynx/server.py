@@ -3,15 +3,15 @@ import socket
 import time
 import threading
 import traceback
-from account import Account
-from peer import Peer
-from inventory import Inventory
-from peer_connection import PeerConnection
-from request import Request
-from response import Response
-from message import Message
-from constants import PROTOCOL_VERSION, NODE_SERVICES, SUB_VERSION
-from utilities import Utilities
+import requests
+from lynx.peer import Peer
+from lynx.inventory import Inventory
+from lynx.peer_connection import PeerConnection
+from lynx.request import Request
+from lynx.response import Response
+from lynx.message import Message
+from lynx.constants import PROTOCOL_VERSION, NODE_SERVICES, SUB_VERSION
+from lynx.utilities import Utilities
 
 
 def display_debug(msg):
@@ -20,9 +20,8 @@ def display_debug(msg):
 
 
 class Server:
-    # ------------------------------------------------------------------------------
+
     def __init__(self, nonce: str, port=6969, host=None, max_peers=12) -> None:
-        # --------------------------------------------------------------------------
         """Initializes a servent with the ability to index information
         for up to max_nodes number of peers (max_nodes may be set to 0 to allow for an
         unlimited number of peers), listening on a given server port, with a given
@@ -71,17 +70,19 @@ class Server:
         self.__debug('Server Information:\n\tHost: {} (IPV4)\n\tPort: {}\n\tNode ID (Nonce): {}\n'.format(
             self.host, self.port, self.nonce))
 
-    # ------------------------------------------------------------------------------
+
+    def __debug(self, message) -> None:
+        if self.debug:
+            display_debug(message)
+
+
     def __init_server_host(self) -> None:
-        # --------------------------------------------------------------------------
         """Attempts to connect to an Internet host like Google to determine
         the local machine's IP address.
         """
         print("Configuring IP Address...")
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        server_socket.connect(('8.8.8.8', 80))
-        self.host = server_socket.getsockname()[0]
-        server_socket.close()
+        ip_request = requests.request('GET', 'http://myip.dnsomatic.com')
+        self.host = ip_request.text
 
     # ------------------------------------------------------------------------------
     def send_version_request(self, peer: Peer):
@@ -107,9 +108,8 @@ class Server:
         except:
             self.__debug('Failed to Send Version Request. Retrying...')
 
-    # ------------------------------------------------------------------------------
+
     def send_address_request(self, peer: Peer):
-        # --------------------------------------------------------------------------
         """"""
 
         payload = {'address_count': 1,
@@ -122,41 +122,12 @@ class Server:
         except:
             self.__debug('Failed to Send Address Request. Retrying...')
 
-    # ------------------------------------------------------------------------------
-    def send_accounts_request(self, peer: Peer):
-        # --------------------------------------------------------------------------
-        """"""
+    
+    def send_campaign(self, peer: Peer):
+        ...
 
-        payload = {'inventory': [], 'count': 0}
 
-        try:
-            account_request_thread = threading.Thread(target=self.connect_and_send, args=[
-                peer.host, peer.port, 'request', 3, payload, peer.address], name='States Request Thread')
-            account_request_thread.start()
-        except:
-            self.__debug('Failed to Send States Request. Retrying...')
-
-    # ------------------------------------------------------------------------------
-    def send_states_request(self, peer: Peer):
-        # --------------------------------------------------------------------------
-        """"""
-
-        payload = {'version': PROTOCOL_VERSION,
-                   'account': '0x69420',
-                   'best_state': ''}
-
-        # READ STATE INVENTORY AND DETERMINE BEST STATE FOR PAYLOAD
-
-        try:
-            account_request_thread = threading.Thread(target=self.connect_and_send, args=[
-                peer.host, peer.port, 'request', 4, payload, peer.address], name='States Request Thread')
-            account_request_thread.start()
-        except:
-            self.__debug('Failed to Send States Request. Retrying...')
-
-    # ------------------------------------------------------------------------------
     def send_data_request(self, peer: Peer):
-        # --------------------------------------------------------------------------
         """"""
 
         try:
@@ -189,9 +160,8 @@ class Server:
             self.__debug('Failed to send data request. Retrying...')
             del peer.states_requested[-len(inventory_batch):]
 
-    # ------------------------------------------------------------------------------
+
     def send_heartbeat_request(self):
-        # --------------------------------------------------------------------------
         """"""
 
         for peer in self.peers:
@@ -203,9 +173,8 @@ class Server:
             except:
                 self.__debug(f'Failed to request heartbeat from ({peer}).')
 
-    # ------------------------------------------------------------------------------
+
     def send_all_peers_request(self, flag: int = 0) -> None:
-        # --------------------------------------------------------------------------
         """"""
 
         if 0 < flag < 100:
@@ -214,16 +183,15 @@ class Server:
                     self.send_version_request(peer)
                 elif flag == 2:
                     self.send_address_request(peer)
-                elif flag == 3:
-                    self.send_accounts_request(peer)
-                elif flag == 4:
-                    self.send_states_request(peer)
+                # elif flag == 3:
+                #     self.send_accounts_request(peer)
+                # elif flag == 4:
+                #     self.send_states_request(peer)
                 elif flag == 5:
                     self.send_data_request(peer)
 
-    # ------------------------------------------------------------------------------
+
     def add_peer(self, peer: Peer) -> bool:
-        # --------------------------------------------------------------------------
         """Adds a peer name and host:port mapping to the known list of peers."""
 
         peer_id = '{}:{}'.format(peer.host, peer.port)
@@ -236,17 +204,15 @@ class Server:
 
         return False
 
-    # ------------------------------------------------------------------------------
+
     def get_peer(self, peer_id) -> tuple:
-        # --------------------------------------------------------------------------
         """Returns the (host, port) tuple for the given peer name."""
 
         assert(peer_id in self.peers)  # maybe make this just return NULL
         return self.peers[peer_id]
 
-    # ------------------------------------------------------------------------------
+
     def remove_peer(self, peer_id) -> None:
-        # --------------------------------------------------------------------------
         """Removes peer information from the know list of peers."""
 
         if peer_id in self.peers:
@@ -254,9 +220,8 @@ class Server:
             del self.peers[peer_id]
             self.peer_lock.release()
 
-    # ------------------------------------------------------------------------------
+
     def insert_peer_at(self, index, peer_id, host, port) -> None:
-        # --------------------------------------------------------------------------
         """Inserts a peer's information at a specific position in the list of peers.
         The functions insert_peer_at, get_peer_at, and remove_peer_at should not be
         used concurrently with add_peer, get_peer, and/or remove_peer.
@@ -266,9 +231,8 @@ class Server:
         self.peers[index] = (peer_id, host, int(port))
         self.peer_lock.release()
 
-    # ------------------------------------------------------------------------------
+
     def get_peer_at(self, index) -> tuple:
-        # --------------------------------------------------------------------------
 
         if index not in self.peers:
             return None
@@ -280,16 +244,14 @@ class Server:
 
     #     self.remove_peer(self, self.peers[index])
 
-    # ------------------------------------------------------------------------------
+
     def number_of_peers(self) -> int:
-        # --------------------------------------------------------------------------
         """Return the number of known peer's."""
 
         return len(self.peers)
 
-    # ------------------------------------------------------------------------------
+
     def max_peers_reached(self) -> bool:
-        # --------------------------------------------------------------------------
         """Returns whether the maximum limit of names has been added to the list of
         known peers. Always returns True if max_peers is set to 0
         """
@@ -297,9 +259,8 @@ class Server:
         assert(self.max_peers == 0 or len(self.peers) <= self.max_peers)
         return self.max_peers > 0 and len(self.peers) == self.max_peers
 
-    # ------------------------------------------------------------------------------
+
     def make_server_socket(self, port, backlog=5) -> socket.socket:
-        # --------------------------------------------------------------------------
         """Constructs and prepares a server socket listening on given port.
 
         For more information on port forwarding visit: https://stackoverflow.com/questions/45097727/python-sockets-port-forwarding
@@ -311,9 +272,8 @@ class Server:
         server_socket.listen(backlog)
         return server_socket
 
-    # ------------------------------------------------------------------------------
+
     def __handle_peer(self, client_socket: socket.socket) -> None:
-        # --------------------------------------------------------------------------
         """Dispatches messages from the socket connection."""
 
         self.__debug('\n********************\n')
@@ -357,9 +317,8 @@ class Server:
         self.__debug('\n********************')
         peer_connection.close()
 
-    # ------------------------------------------------------------------------------
+
     def connect_and_send(self, host, port, message_type: str, message_flag: int, message_data, peer_id=None) -> list:
-        # --------------------------------------------------------------------------
         """Connects and sends a message to the specified host:port. The host's
         reply, if expected, will be returned as a list.
         """
@@ -401,9 +360,8 @@ class Server:
 
         return message_replies
 
-    # ------------------------------------------------------------------------------
+
     def start_server_listen(self) -> None:
-        # --------------------------------------------------------------------------
         """"""
 
         server_socket = self.make_server_socket(self.port)
@@ -433,11 +391,6 @@ class Server:
         self.__debug('Stopping server listen')
         server_socket.close()
 
-    # ------------------------------------------------------------------------------
-    def __debug(self, message) -> None:
-        # --------------------------------------------------------------------------
-        if self.debug:
-            display_debug(message)
 
 
 # end Server class

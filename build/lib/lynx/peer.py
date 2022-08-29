@@ -1,5 +1,5 @@
-from peer_connection import PeerConnection
-from utilities import Utilities
+from lynx.peer_connection import PeerConnection
+from lynx.utilities import Utilities
 from os.path import exists
 import json
 import threading

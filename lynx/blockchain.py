@@ -8,6 +8,7 @@ from eth_utils import (
 )
 from eth.tools.builder.chain.builders import disable_pow_check
 from eth.constants import GENESIS_BLOCK_NUMBER
+from lynx.constants import REGISTRATION_BYTE_CODE
 from eth.vm.forks.lynx import LynxVM
 from eth.abc import (
     BlockAPI,
@@ -18,7 +19,7 @@ SENDER_PRIVATE_KEY = keys.PrivateKey(bytes.fromhex('45a915e4d060149eb4365960e6a7
 SENDER_ADDRESS = Address(SENDER_PRIVATE_KEY.public_key.to_canonical_address())
 RECEIVER = Address(b'\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x02')
 
-GENESIS_PARAMS = {'gas_limit': 3141592, 'timestamp': 1514764800, 'epoch': 1}
+GENESIS_PARAMS = {'timestamp': 1514764800,}
 
 GENESIS_STATE = {
     SENDER_ADDRESS : {
@@ -64,4 +65,7 @@ class Blockchain(MiningChain):
         old_canonical_blocks = tuple(self.get_block_by_hash(header_hash) for header_hash in old_canonical_hashes)
 
         return BlockPersistResult(imported_block=block, new_canonical_blocks=new_canonical_blocks, old_canonical_blocks=old_canonical_blocks,)
+
+    # def import_block(self, block: BlockAPI) -> None:
+    #     self.persist_block(block, perform_validation=False)
 

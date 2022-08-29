@@ -1,5 +1,5 @@
-from account import Account
-from message import Message
+from lynx.account import Account
+from lynx.message import Message
 import socket
 import traceback
 import threading

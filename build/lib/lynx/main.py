@@ -1,4 +1,4 @@
-from lynx.node import Node
+from lynx.p2p.node import Node
 from lynx.account import Account
 from lynx.message import Message
 import threading

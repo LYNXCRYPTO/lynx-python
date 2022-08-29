@@ -6,16 +6,14 @@ from typing import (
     Any,
 )
 from enum import Enum
+from lynx.peer import Peer
 from eth.vm.forks.lynx.blocks import LynxBlockHeader, LynxBlock
-from eth.vm.forks.lynx.transactions import LynxLegacyTransaction
-from eth.db.atomic import AtomicDB
+from eth.vm.forks.lynx.transactions import LynxTransaction
 from eth_typing import BlockNumber
 from eth_utils import encode_hex
 import rlp
 import snappy
 from eth.abc import (
-    BlockAPI,
-    BlockHeaderAPI,
     SignedTransactionAPI,
     ReceiptAPI,
     ChainDatabaseAPI,
@@ -36,7 +34,7 @@ class StorageType(Enum):
 
     def validate_storage_type(self, data: Any) -> bool:
         if self is StorageType.HEADERS:
-            return isinstance(data, BlockHeaderAPI)
+            return isinstance(data, LynxBlockHeader)
         if self is StorageType.TRANSACTIONS:
             return isinstance(data, tuple) and all(isinstance(tx, SignedTransactionAPI) for tx in data)
         if self is StorageType.RECEIPTS:
@@ -49,6 +47,8 @@ class Freezer:
     @classmethod
     def create_freezer(cls) -> None:
         cls.__create_freezer_dir()
+        cls.__create_peers_dir()
+        cls.__create_chain_dir()
         cls.__create_index_dir()
         cls.__create_data_dir()
         cls.__create_header_data_dir()
@@ -67,40 +67,73 @@ class Freezer:
         current_working_directory = Path.cwd()
         Path(current_working_directory / 'freezer').mkdir(exist_ok=True)
 
+    @classmethod
+    def chain_dir_exists(cls) -> bool:
+        current_working_directory = Path.cwd()
+        return (current_working_directory / 'freezer' / 'chain').exists()
+
 
     @classmethod
-    def index_dir_exists(cls) -> bool:
+    def __create_chain_dir(cls) -> None:
         current_working_directory = Path.cwd()
-        return (current_working_directory / 'freezer' / 'indexes').exists()
+        Path(current_working_directory / 'freezer' / 'chain').mkdir(exist_ok=True)
+
+    @classmethod
+    def peers_dir_exists(cls) -> bool:
+        current_working_directory = Path.cwd()
+        return (current_working_directory / 'freezer' / 'peers').exists()
+
+
+    @classmethod
+    def __create_peers_dir(cls) -> None:
+        current_working_directory = Path.cwd()
+        Path(current_working_directory / 'freezer' / 'peers').mkdir(exist_ok=True)
+
+    @classmethod
+    def chain_index_dir_exists(cls) -> bool:
+        current_working_directory = Path.cwd()
+        return (current_working_directory / 'freezer' / 'chain' / 'indexes').exists()
+
+    @classmethod
+    def peers_index_dir_exists(cls) -> bool:
+        current_working_directory = Path.cwd()
+        return (current_working_directory / 'freezer' / 'peers' / 'indexes').exists()
 
 
     @classmethod
     def __create_index_dir(cls) -> None:
         current_working_directory = Path.cwd()
-        Path(current_working_directory / 'freezer' / 'indexes').mkdir(exist_ok=True)
+        Path(current_working_directory / 'freezer' / 'chain' / 'indexes').mkdir(exist_ok=True)
+        Path(current_working_directory / 'freezer' / 'peers' / 'indexes').mkdir(exist_ok=True)
 
 
     @classmethod
-    def data_dir_exists(cls) -> bool:
+    def chain_data_dir_exists(cls) -> bool:
         current_working_directory = Path.cwd()
-        return (current_working_directory / 'freezer' / 'data').exists()
+        return (current_working_directory / 'freezer' / 'chain' / 'data').exists()
+
+    @classmethod
+    def peers_data_dir_exists(cls) -> bool:
+        current_working_directory = Path.cwd()
+        return (current_working_directory / 'freezer' / 'peers' / 'data').exists()
 
 
     @classmethod
     def __create_data_dir(cls) -> None:
         current_working_directory = Path.cwd()
-        Path(current_working_directory / 'freezer' / 'data').mkdir(exist_ok=True)
+        Path(current_working_directory / 'freezer' / 'chain' / 'data').mkdir(exist_ok=True)
+        Path(current_working_directory / 'freezer' / 'peers' / 'data').mkdir(exist_ok=True)
 
 
     @classmethod
     def data_type_dir_exists(cls, data_type: StorageType) -> bool:
         current_working_directory = Path.cwd()
-        return Path(current_working_directory / 'freezer' / 'data' / data_type.value).exists()
+        return Path(current_working_directory / 'freezer' / 'chain' / 'data' / data_type.value).exists()
 
     @classmethod
     def __create_data_type_dir(cls, data_type: StorageType) -> None:
         current_working_directory = Path.cwd()
-        Path(current_working_directory / 'freezer' / 'data' / data_type.value).mkdir(exist_ok=True)
+        Path(current_working_directory / 'freezer' / 'chain' / 'data' / data_type.value).mkdir(exist_ok=True)
 
 
     @classmethod
@@ -121,11 +154,11 @@ class Freezer:
     @classmethod 
     def header_index_exists(cls) -> bool:
         current_working_directory = Path.cwd()
-        return (current_working_directory / 'freezer' / 'indexes' / 'headers.cidx').exists()
+        return (current_working_directory / 'freezer' / 'chain' / 'indexes' / 'headers.cidx').exists()
 
 
     @classmethod
-    def __store_data(cls, data_type: StorageType, data: Union[BlockHeaderAPI, tuple[SignedTransactionAPI], tuple[ReceiptAPI]]) -> tuple[int, int]:
+    def __store_chain_data(cls, data_type: StorageType, data: Union[LynxBlockHeader, tuple[SignedTransactionAPI], tuple[ReceiptAPI]]) -> tuple[int, int]:
         """Adds the given header to the header data directory and returns 
         the a tuple with the file number and the offset of the data
         
@@ -143,14 +176,14 @@ class Freezer:
         data_size = sys.getsizeof(compressed)
 
         current_working_directory = Path.cwd()
-        data_directory = Path(current_working_directory / 'freezer' / 'data' / data_type.value)
+        data_directory = Path(current_working_directory / 'freezer' / 'chain' / 'data' / data_type.value)
         files = list(data_directory.glob(f'{data_type.value}.*.cdat'))
         file_num = len(files)
 
         if file_num == 0 or (Path(max(files)).stat().st_size + data_size) > MAX_DATA_FILE_SIZE:
             file_num += 1
             file_name = f'{data_type.value}.{str(file_num).zfill(4)}.cdat'
-            file_path = Path(current_working_directory / 'freezer' / 'data' / data_type.value / file_name)
+            file_path = Path(current_working_directory / 'freezer' / 'chain' / 'data' / data_type.value / file_name)
             file_mode = 'wb'
         else:
             file_path = Path(max(files))
@@ -165,17 +198,17 @@ class Freezer:
 
 
     @classmethod
-    def __store_index(cls, data_type: StorageType, file_num: int, offset: int) -> None:
+    def __store_chain_index(cls, data_type: StorageType, file_num: int, offset: int) -> None:
         """Maps the given header to the file and offset where the data can be found
         
         TODO Generalize this function to handle bodies, receipts, etc.
         """
         
-        if not cls.index_dir_exists():
+        if not cls.chain_index_dir_exists():
             cls.create_freezer()
 
         current_working_directory = Path.cwd()
-        file_path = Path(current_working_directory / 'freezer' / 'indexes' / f'{data_type.value}.cidx')
+        file_path = Path(current_working_directory / 'freezer' / 'chain' / 'indexes' / f'{data_type.value}.cidx')
 
         file_num_bytes = file_num.to_bytes(2, byteorder='big')
         offset_bytes = offset.to_bytes(4, byteorder='big')
@@ -188,12 +221,12 @@ class Freezer:
 
     
     @classmethod
-    def __store_header(cls, header: BlockHeaderAPI) -> None:
+    def __store_header(cls, header: LynxBlockHeader) -> None:
         """Adds the given header to the header data directory and returns 
         the a tuple with the file number and the offset of the data
         """
-        file_num, offset = cls.__store_data(StorageType.HEADERS, header)
-        cls.__store_index(StorageType.HEADERS, file_num, offset)
+        file_num, offset = cls.__store_chain_data(StorageType.HEADERS, header)
+        cls.__store_chain_index(StorageType.HEADERS, file_num, offset)
 
 
     @classmethod
@@ -201,8 +234,8 @@ class Freezer:
         """Adds the given header to the header data directory and returns 
         the a tuple with the file number and the offset of the data
         """
-        file_num, offset = cls.__store_data(StorageType.TRANSACTIONS, transactions)
-        cls.__store_index(StorageType.TRANSACTIONS, file_num, offset)
+        file_num, offset = cls.__store_chain_data(StorageType.TRANSACTIONS, transactions)
+        cls.__store_chain_index(StorageType.TRANSACTIONS, file_num, offset)
 
     
     @classmethod
@@ -210,12 +243,12 @@ class Freezer:
         """Adds the given header to the header data directory and returns 
         the a tuple with the file number and the offset of the data
         """
-        file_num, offset = cls.__store_data(StorageType.RECEIPTS, receipts)
-        cls.__store_index(StorageType.RECEIPTS, file_num, offset)
+        file_num, offset = cls.__store_chain_data(StorageType.RECEIPTS, receipts)
+        cls.__store_chain_index(StorageType.RECEIPTS, file_num, offset)
 
 
     @classmethod
-    def store_block(cls, block: BlockAPI, chaindb: ChainDatabaseAPI) -> None:
+    def store_block(cls, block: LynxBlock, chaindb: ChainDatabaseAPI) -> None:
         """Adds the given block to the freezer"""
         if not cls.freezer_exists():
             cls.create_freezer()
@@ -230,7 +263,7 @@ class Freezer:
 
 
     @classmethod
-    def read_index_file(cls, data_type: StorageType, offset: int) -> tuple[int, int, int]:
+    def read_chain_index_file(cls, data_type: StorageType, offset: int) -> tuple[int, int, int]:
         """Reads the index file of the given data type (headers, transactions, receipts) at the 
         given offset and returns the file number, offset, and the next block's offset. 
         if the next block does not exist or is in another file next_block_offset will be None. 
@@ -240,7 +273,7 @@ class Freezer:
         """
 
         current_working_directory = Path.cwd()
-        file_path = Path(current_working_directory / 'freezer' / 'indexes' / f'{data_type.value}.cidx')
+        file_path = Path(current_working_directory / 'freezer' / 'chain' / 'indexes' / f'{data_type.value}.cidx')
         with open(file_path, 'rb') as file:
             file_length = len(file.read())
             if offset + INDEX_ROW_SIZE > file_length:
@@ -264,7 +297,7 @@ class Freezer:
 
 
     @classmethod
-    def read_data_file(cls, data_type: StorageType, file_num: int, start: int, end: int = None) -> Union[BlockHeaderAPI, tuple[SignedTransactionAPI], tuple[ReceiptAPI]]:
+    def read_chain_data_file(cls, data_type: StorageType, file_num: int, start: int, end: int = None) -> Union[LynxBlockHeader, tuple[SignedTransactionAPI], tuple[ReceiptAPI]]:
         """Reads the header data file from the given start index to the end index 
         and returns a BlockHeaderAPI, tuple[SignedTransactionAPI], or a tuple[ReceiptAPI] object.
         depending on the data type.
@@ -273,7 +306,7 @@ class Freezer:
         """
 
         current_working_directory = Path.cwd()
-        file_path = Path(current_working_directory / 'freezer' / 'data' / f'{data_type.value}' / f'{data_type.value}.{str(file_num).zfill(4)}.cdat')
+        file_path = Path(current_working_directory / 'freezer' / 'chain' / 'data' / f'{data_type.value}' / f'{data_type.value}.{str(file_num).zfill(4)}.cdat')
         with open(file_path, 'rb') as file:
             data_range = None if end is None else end - start 
             file.seek(start)
@@ -286,19 +319,19 @@ class Freezer:
         if data_type is StorageType.HEADERS:
             return LynxBlockHeader.deserialize(data_bytes)
         if data_type is StorageType.TRANSACTIONS:
-            return [LynxLegacyTransaction.deserialize(tx) for tx in data_bytes]
+            return [LynxTransaction.deserialize(tx) for tx in data_bytes]
         # if data_type is StorageType.RECEIPTS:
         #     return [LondonReceipt.deserialize(tx) for tx in bytes]
         return None
 
 
     @classmethod
-    def get_block_header_by_number(cls, block_number: BlockNumber) -> BlockHeaderAPI:
+    def get_block_header_by_number(cls, block_number: BlockNumber) -> LynxBlockHeader:
         
         index_file_offset = block_number * INDEX_ROW_SIZE
 
-        file_num, offset, next_block_offset = cls.read_index_file(StorageType.HEADERS, index_file_offset)
-        header = cls.read_data_file(StorageType.HEADERS, file_num, offset, next_block_offset)
+        file_num, offset, next_block_offset = cls.read_chain_index_file(StorageType.HEADERS, index_file_offset)
+        header = cls.read_chain_data_file(StorageType.HEADERS, file_num, offset, next_block_offset)
         return header
 
     @classmethod
@@ -306,14 +339,22 @@ class Freezer:
         
         index_file_offset = block_number * INDEX_ROW_SIZE
 
-        file_num, offset, next_block_offset = cls.read_index_file(StorageType.TRANSACTIONS, index_file_offset)
-        transactions = cls.read_data_file(StorageType.TRANSACTIONS, file_num, offset, next_block_offset)
+        file_num, offset, next_block_offset = cls.read_chain_index_file(StorageType.TRANSACTIONS, index_file_offset)
+        transactions = cls.read_chain_data_file(StorageType.TRANSACTIONS, file_num, offset, next_block_offset)
         return transactions
     
 
     @classmethod
-    def get_block_by_number(cls, block_number: BlockNumber) -> BlockHeaderAPI:
+    def get_block_by_number(cls, block_number: BlockNumber) -> LynxBlockHeader:
         
         header = cls.get_block_header_by_number(block_number)
         transactions = cls.get_block_transactions_by_number(block_number)
         return LynxBlock(header, transactions)
+
+    @classmethod
+    def store_peer(cls, peer: Peer) -> None:
+        """Adds the given peer to the freezer"""
+        if not cls.freezer_exists():
+            cls.create_freezer()
+
+        

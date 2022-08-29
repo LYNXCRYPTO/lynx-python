@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 deps = {
     'lynx': [
-        "py-evm @ git+https://github.com/jordanlesson/py-evm.git@8008952fb2470d0f33d0578689275325ba282002",
+        "py-evm @ git+https://github.com/jordanlesson/py-evm.git",
         "eth-typing>=2.2.0,<4.0.0",
         "eth-utils>=1.9.4,<3.0.0",
         "rlp>=2,<4",

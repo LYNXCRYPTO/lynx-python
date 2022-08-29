@@ -30,7 +30,8 @@ lynx/utilities.py
 lynx/validation.py
 lynx/wallet.py
 lynx/consensus/__init__.py
+lynx/consensus/epoch.py
+lynx/consensus/leader_schedule.py
 lynx/consensus/snowball.py
 lynx/consensus/vdf.py
 lynx/consensus/vrf.py
-lynx/database/__init__.py

@@ -1,5 +1,5 @@
-from lynx.node import Node
-from lynx.server import Server
+from lynx.p2p.node import Node
+from lynx.p2p.server import Server
 from lynx.inventory import Inventory
 
 
