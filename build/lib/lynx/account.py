@@ -1,6 +1,6 @@
 # account.py
 from eth.constants import EMPTY_SHA3, BLANK_ROOT_HASH
-from lynx.message import Message, SignedMessage
+from lynx.p2p.message import Message, SignedMessage
 import threading
 import binascii
 from hashlib import sha3_256

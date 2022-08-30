@@ -1,4 +1,5 @@
 from pathlib import Path
+from pprint import isreadable
 import sys
 from typing import (
     Sequence,
@@ -6,12 +7,13 @@ from typing import (
     Any,
 )
 from enum import Enum
-from lynx.peer import Peer
+from lynx.p2p.peer import Peer
 from eth.vm.forks.lynx.blocks import LynxBlockHeader, LynxBlock
 from eth.vm.forks.lynx.transactions import LynxTransaction
 from eth_typing import BlockNumber
 from eth_utils import encode_hex
 import rlp
+import json
 import snappy
 from eth.abc import (
     SignedTransactionAPI,
@@ -89,22 +91,17 @@ class Freezer:
         current_working_directory = Path.cwd()
         Path(current_working_directory / 'freezer' / 'peers').mkdir(exist_ok=True)
 
+
     @classmethod
     def chain_index_dir_exists(cls) -> bool:
         current_working_directory = Path.cwd()
         return (current_working_directory / 'freezer' / 'chain' / 'indexes').exists()
-
-    @classmethod
-    def peers_index_dir_exists(cls) -> bool:
-        current_working_directory = Path.cwd()
-        return (current_working_directory / 'freezer' / 'peers' / 'indexes').exists()
 
 
     @classmethod
     def __create_index_dir(cls) -> None:
         current_working_directory = Path.cwd()
         Path(current_working_directory / 'freezer' / 'chain' / 'indexes').mkdir(exist_ok=True)
-        Path(current_working_directory / 'freezer' / 'peers' / 'indexes').mkdir(exist_ok=True)
 
 
     @classmethod
@@ -351,10 +348,51 @@ class Freezer:
         transactions = cls.get_block_transactions_by_number(block_number)
         return LynxBlock(header, transactions)
 
+
+    @classmethod
+    def __store_peer_data(cls, peer: Peer) -> int:
+
+        if not isinstance(peer, Peer):
+            raise ValueError("Invalid data type")
+
+        data = peer.as_dict()
+        data_size = sys.getsizeof(data)
+
+        current_working_directory = Path.cwd()
+        data_directory = Path(current_working_directory / 'freezer' / 'peers' / 'data')
+        files = list(data_directory.glob('peers.*.json'))
+        file_num = len(files)
+
+        if file_num == 0 or (Path(max(files)).stat().st_size + data_size) > MAX_DATA_FILE_SIZE:
+            file_num += 1
+            file_name = f'peers.{str(file_num).zfill(4)}.json'
+            file_path = Path(current_working_directory / 'freezer' / 'peers' / 'data' / file_name)
+            file_size = 0
+            file_mode = 'w+'
+        else:
+            file_path = Path(max(files))
+            file_size = file_path.stat().st_size
+            file_mode = 'r+'
+
+        with open(file_path, file_mode) as file:
+            if file_size > 0:
+                #TODO: Handle if file is corrupted
+                file_contents = json.load(file)
+                file_contents[peer.address] = data
+                file_contents = json.dumps(file_contents)
+                file.seek(0)
+                file.truncate(0)
+            else:
+                file_contents = json.dumps({peer.address:data})
+            file.write(file_contents)
+            file.close()
+
+        return file_num
+
     @classmethod
     def store_peer(cls, peer: Peer) -> None:
         """Adds the given peer to the freezer"""
         if not cls.freezer_exists():
             cls.create_freezer()
 
-        
+        cls.__store_peer_data(peer)

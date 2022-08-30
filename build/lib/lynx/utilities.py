@@ -1,6 +1,6 @@
 from os.path import exists
 from os import makedirs, listdir
-from lynx.message import SignedMessage
+from lynx.p2p.message import SignedMessage
 from lynx.peer_connection import PeerConnection
 from ipaddress import ip_address, IPv4Address
 from hashlib import sha3_256
