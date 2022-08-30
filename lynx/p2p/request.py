@@ -5,7 +5,7 @@ from os import listdir
 from os.path import exists
 from lynx.state import State
 from lynx.p2p.peer import Peer
-from lynx.message import Message, SignedMessage
+from lynx.p2p.message import Message
 from lynx.message_validation import MessageValidation
 if TYPE_CHECKING:
     from peer_connection import PeerConnection
@@ -14,9 +14,7 @@ if TYPE_CHECKING:
 
 class Request:
 
-    # ------------------------------------------------------------------------------
     def __init__(self, server: Server, message: Message, peer_connection: PeerConnection) -> None:
-        # --------------------------------------------------------------------------
         """"""
 
         self.debug = 1
@@ -26,27 +24,31 @@ class Request:
         self.peer_connection = peer_connection
         self.__request_selector()
 
-    # ------------------------------------------------------------------------------
+
     def __request_selector(self) -> None:
-        # --------------------------------------------------------------------------
+        """"""
+        if self.message.flag == 1:
+            self.__handle_heartbeat_request()
+        if self.message.flag == 2:
+            self.__handle_version_request()
+        elif self.message.flag == 3:
+            self.__handle_address_request()
+        elif self.message.flag == 4:
+            self.__handle_accounts_request()
+        elif self.message.flag == 5:
+            self.__handle_states_request()
+        elif self.message.flag == 6:
+            self.__handle_data_request()
+
+    
+    def __handle_heartbeat_request(self) -> None:
         """"""
 
-        if self.message.flag == 1:
-            self.__handle_version_request()
-        elif self.message.flag == 2:
-            self.__handle_address_request()
-        elif self.message.flag == 3:
-            self.__handle_accounts_request()
-        elif self.message.flag == 4:
-            self.__handle_states_request()
-        elif self.message.flag == 5:
-            self.__handle_data_request()
-        elif self.message.flag == 6:
-            self.__handle_heartbeat_request()
+        self.peer_connection.send_data(message_type='response', message_flag=self.message.flag, message_data='PONG')
+        print('Heartbeat Sent!')
 
-    # ------------------------------------------------------------------------------
+
     def __handle_version_request(self) -> None:
-        # --------------------------------------------------------------------------
         """"""
         if MessageValidation.validate_version_request(message=self.message) and not self.server.max_peers_reached():
 
@@ -59,9 +61,8 @@ class Request:
             print(
                 'Version request message is formatted incorrectly, unable to handle message...')
 
-    # ------------------------------------------------------------------------------
+
     def __handle_address_request(self) -> None:
-        # --------------------------------------------------------------------------
         """"""
 
         if MessageValidation.validate_address_request(message=self.message):
@@ -70,16 +71,13 @@ class Request:
             # self.server.connect_and_send(
             #     host, port, self.message.type, self.message.flag, self.message.data, self.server.server.peers[peer].nonce)
 
-            known_peers = [*Peer.get_known_peers()]
-            payload = {'address_count': len(
-                known_peers), 'address_list': known_peers}
+            payload = {'address_count': len([]), 'address_list': ""}
 
             self.peer_connection.send_data(
                 'response', self.message.flag, payload)
 
-    # ------------------------------------------------------------------------------
+
     def __handle_accounts_request(self) -> None:
-        # --------------------------------------------------------------------------
         """"""
 
         account_hashes = []
@@ -101,9 +99,8 @@ class Request:
         self.peer_connection.send_data(
             'response', self.message.flag, payload)
 
-    # ------------------------------------------------------------------------------
+
     def __handle_states_request(self) -> None:
-        # --------------------------------------------------------------------------
         """"""
         state_hashes = []
 
@@ -134,9 +131,8 @@ class Request:
         self.peer_connection.send_data(
             'response', self.message.flag, payload)
 
-    # ------------------------------------------------------------------------------
+
     def __handle_data_request(self) -> None:
-        # --------------------------------------------------------------------------
         """"""
 
         inventory_to_send = []
@@ -162,14 +158,8 @@ class Request:
         self.peer_connection.send_data(
             'response', self.message.flag, payload)
 
-    # ------------------------------------------------------------------------------
-    def __handle_heartbeat_request(self) -> None:
-        # --------------------------------------------------------------------------
-        """"""
 
-        self.peer_connection.send_data(
-            message_type='response', message_flag=self.message.flag, message_data='PONG')
-        print('Heartbeat Sent!')
+
 
 
 # end Request class

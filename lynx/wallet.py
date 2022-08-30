@@ -2,7 +2,7 @@ from typing import (
     Any,
 )
 import rlp
-from lynx.message import Message, SignedMessage
+from lynx.p2p.message import Message, SignedMessage
 from hdwallet import BIP44HDWallet
 from hdwallet.cryptocurrencies import EthereumMainnet, BitcoinMainnet
 from hdwallet.derivations import BIP44Derivation

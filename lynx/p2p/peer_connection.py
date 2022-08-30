@@ -1,4 +1,4 @@
-from lynx.message import Message
+from lynx.p2p.message import Message
 import socket
 import traceback
 
@@ -45,7 +45,6 @@ class PeerConnection:
             print(f'Message Information:\n\tType: {message_type}\n\tFlag: {message_flag}\n\tData: {message_data}\n')
         except:
             print(f'Unable to send data: {message_data}')
-            traceback.print_exc()
             return False
         return True
 
