@@ -14,16 +14,9 @@ lynx/freezer.py
 lynx/generator.py
 lynx/heartbeat.py
 lynx/inventory.py
-lynx/main.py
 lynx/message.py
 lynx/message_validation.py
 lynx/nat.py
-lynx/node.py
-lynx/peer.py
-lynx/peer_connection.py
-lynx/request.py
-lynx/response.py
-lynx/server.py
 lynx/state.py
 lynx/transaction.py
 lynx/utilities.py
@@ -35,3 +28,10 @@ lynx/consensus/leader_schedule.py
 lynx/consensus/snowball.py
 lynx/consensus/vdf.py
 lynx/consensus/vrf.py
+lynx/p2p/__init__.py
+lynx/p2p/node.py
+lynx/p2p/peer.py
+lynx/p2p/peer_connection.py
+lynx/p2p/request.py
+lynx/p2p/response.py
+lynx/p2p/server.py
