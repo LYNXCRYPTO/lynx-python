@@ -1,6 +1,6 @@
 from lynx.p2p.node import Node
 from lynx.account import Account
-from lynx.message import Message
+from lynx.p2p.message import Message
 from lynx.utilities import Utilities
 import threading
 

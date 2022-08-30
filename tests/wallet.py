@@ -1,5 +1,5 @@
 from lynx.wallet import Wallet
-from lynx.message import Message
+from lynx.p2p.message import Message
 
 def test_wallet():
     print(pow(2, 100))

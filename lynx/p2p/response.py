@@ -1,6 +1,6 @@
 from __future__ import annotations
 from lynx.p2p.peer import Peer
-from lynx.message import Message
+from lynx.p2p.message import Message
 from lynx.message_validation import MessageValidation
 from lynx.state import State
 from lynx.utilities import Utilities
@@ -37,17 +37,17 @@ class Response:
         """
 
         if self.message.flag == 1:
-            self.__handle_version_response()
-        elif self.message.flag == 2:
-            self.__handle_address_response()
-        elif self.message.flag == 3:
-            self.__handle_accounts_response()
-        elif self.message.flag == 4:
-            self.__handle_states_response()
-        elif self.message.flag == 5:
-            self.__handle_data_response()
-        elif self.message.flag == 6:
             self.__handle_heartbeat_response()
+        if self.message.flag == 2:
+            self.__handle_version_response()
+        elif self.message.flag == 3:
+            self.__handle_address_response()
+        elif self.message.flag == 4:
+            self.__handle_accounts_response()
+        elif self.message.flag == 5:
+            self.__handle_states_response()
+        elif self.message.flag == 6:
+            self.__handle_data_response()
 
     # ------------------------------------------------------------------------------
     def __handle_version_response(self) -> None:
