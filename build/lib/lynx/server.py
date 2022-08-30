@@ -9,7 +9,7 @@ from lynx.inventory import Inventory
 from lynx.peer_connection import PeerConnection
 from lynx.request import Request
 from lynx.response import Response
-from lynx.message import Message
+from lynx.p2p.message import Message
 from lynx.constants import PROTOCOL_VERSION, NODE_SERVICES, SUB_VERSION
 from lynx.utilities import Utilities
 

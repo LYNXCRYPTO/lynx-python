@@ -4,7 +4,7 @@ from lynx.account import Account
 from lynx.p2p.server import Server
 from lynx.peer import Peer
 from lynx.peer_connection import PeerConnection
-from lynx.message import Message, SignedMessage
+from lynx.p2p.message import Message, SignedMessage
 from lynx.utilities import Utilities
 import uuid
 from lynx.constants import *

@@ -5,7 +5,7 @@ from os import listdir
 from os.path import exists
 from lynx.state import State
 from lynx.peer import Peer
-from lynx.message import Message, SignedMessage
+from lynx.p2p.message import Message, SignedMessage
 from lynx.message_validation import MessageValidation
 if TYPE_CHECKING:
     from peer_connection import PeerConnection

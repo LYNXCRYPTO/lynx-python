@@ -9,7 +9,7 @@ from lynx.inventory import Inventory
 from lynx.p2p.peer_connection import PeerConnection
 from lynx.p2p.request import Request
 from lynx.p2p.response import Response
-from lynx.message import Message
+from lynx.p2p.message import Message
 from lynx.constants import PROTOCOL_VERSION, NODE_SERVICES, SUB_VERSION
 from lynx.utilities import Utilities
 
@@ -198,7 +198,6 @@ class Server:
 
         while not self.shutdown:
             try:
-                # self.__debug('')
                 client_socket, client_address = server_socket.accept()
                 client_socket.settimeout(None)
 

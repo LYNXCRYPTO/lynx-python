@@ -1,6 +1,6 @@
 from __future__ import annotations
 from lynx.peer import Peer
-from lynx.message import Message
+from lynx.p2p.message import Message
 from lynx.message_validation import MessageValidation
 from lynx.state import State
 from lynx.utilities import Utilities
