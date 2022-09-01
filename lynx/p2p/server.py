@@ -9,7 +9,7 @@ from lynx.inventory import Inventory
 from lynx.p2p.peer_connection import PeerConnection
 from lynx.p2p.request import Request
 from lynx.p2p.response import Response
-from lynx.p2p.message import Message
+from lynx.p2p.message import Message, MessageType
 from lynx.constants import PROTOCOL_VERSION, NODE_SERVICES, SUB_VERSION
 from lynx.utilities import Utilities
 
@@ -169,7 +169,7 @@ class Server:
             if message is None or not message.validate():
                 raise ValueError
 
-            if message.type.lower() == 'request':
+            if message.type is MessageType.REQUEST:
                 print(f'Received request from ({host}:{port})')
                 print(f'Request Information:\n\tType: {message.type}\n\tFlag: {message.flag}\n\tData: {message.data}\n')
 
@@ -178,7 +178,6 @@ class Server:
             #     Response(node=self, message=message)
 
         except ValueError:
-            traceback.print_exc()
             print('Message received was not formatted correctly or was of None value.')
         except:
             print('Failed to handle message')
