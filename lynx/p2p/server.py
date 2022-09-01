@@ -32,19 +32,6 @@ class Server:
         else:
             self.__init_server_host()
 
-        self.peer_lock = threading.Lock()
-
-        test_peer = Peer(version=PROTOCOL_VERSION,
-                         services=NODE_SERVICES,
-                         timestamp=str(time.time()),
-                         nonce=uuid.uuid4().hex + uuid.uuid1().hex,
-                         host='127.0.0.1',
-                         port='6969',
-                         sub_version=SUB_VERSION,
-                         start_accounts_count=10,
-                         relay=False,
-                         )
-
         # self.account_inventory = Inventory(on_extension=self.send_all_peers_request, flag=4)
         # self.state_inventory = Inventory(on_extension=self.send_all_peers_request, flag=5)
 
