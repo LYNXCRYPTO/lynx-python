@@ -1,6 +1,6 @@
 # account.py
 from eth.constants import EMPTY_SHA3, BLANK_ROOT_HASH
-from lynx.p2p.message import Message, SignedMessage
+from lynx.p2p.message import Message
 import threading
 import binascii
 from hashlib import sha3_256
@@ -30,29 +30,29 @@ class Account:
         if self.__debug:
             display_debug(message)
 
-    def verify_signature(self, signed_message: SignedMessage, sender_public_key) -> bool:
-        """Verifies that the signature corresponding to the given message is a
-        valid SHA3-256 signature.
-        """
+    # def verify_signature(self, signed_message: SignedMessage, sender_public_key) -> bool:
+    #     """Verifies that the signature corresponding to the given message is a
+    #     valid SHA3-256 signature.
+    #     """
 
-        if signed_message.is_signed:
-            message_JSON = signed_message.message.to_JSON()
-            message_binary = message_JSON.encode()
-            message_hash = int.from_bytes(
-                sha3_256(message_binary).digest(), byteorder='little')
-            hash_from_signature = pow(
-                signed_message.signature, sender_public_key[1], sender_public_key[0])
+    #     if signed_message.is_signed:
+    #         message_JSON = signed_message.message.to_JSON()
+    #         message_binary = message_JSON.encode()
+    #         message_hash = int.from_bytes(
+    #             sha3_256(message_binary).digest(), byteorder='little')
+    #         hash_from_signature = pow(
+    #             signed_message.signature, sender_public_key[1], sender_public_key[0])
 
-            if message_hash == hash_from_signature:
-                self.__debug('Signature is valid')
-            else:
-                self.__debug('Signature is invalid')
+    #         if message_hash == hash_from_signature:
+    #             self.__debug('Signature is valid')
+    #         else:
+    #             self.__debug('Signature is invalid')
 
-            return message_hash == hash_from_signature
+    #         return message_hash == hash_from_signature
 
-        self.__debug('Signature is of None value')
+    #     self.__debug('Signature is of None value')
 
-        return False
+    #     return False
 
 
 # end Account class

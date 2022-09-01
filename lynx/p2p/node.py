@@ -79,8 +79,9 @@ class Node:
 
         for peer in self.peers:
             if flag is MessageFlag.HEARTBEAT:
+                print("hello")
                 self.send_heartbeat_request(peer)
-            elif flag is MessageFlag.VERSION:
+            elif flag == MessageFlag.VERSION.value:
                 # self.send_version_request()
                 pass
 
