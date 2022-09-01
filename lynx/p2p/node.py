@@ -5,7 +5,6 @@ from lynx.p2p.peer_connection import PeerConnection
 from lynx.p2p.request import Request
 from lynx.p2p.response import Response
 from lynx.p2p.message import Message, MessageType, MessageFlag
-from lynx.utilities import Utilities
 import uuid
 import threading
 from lynx.constants import *
@@ -20,7 +19,8 @@ class Node:
         """
 
         self.max_peers = int(max_peers)
-        self.peers = [Peer(address='10.8.242.172', port='6969')]
+        self.peers = [Peer(address='10.8.17.101', port='6969')]
+        self.peer_lock = threading.Lock()
 
         # TODO: Make nonce the SHA256 of host
         self.nonce = uuid.uuid4().hex + uuid.uuid1().hex
@@ -76,7 +76,7 @@ class Node:
 
     def broadcast(self, flag: MessageFlag):
         """Broadcasts a message to all known peers."""
-
+        print("HELLO")
         for peer in self.peers:
             if flag is MessageFlag.HEARTBEAT:
                 self.send_heartbeat_request(peer)
