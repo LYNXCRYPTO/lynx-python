@@ -1,5 +1,4 @@
 from lynx.p2p.node import Node
-from lynx.account import Account
 from lynx.p2p.message import Message
 from lynx.p2p.peer import Peer
 from lynx.constants import *
