@@ -6,13 +6,22 @@ import json
 class MessageType(Enum):
     """Enum for the different types of storage within the client's freezer"""
 
-    REQUEST = 'request'
-    RESPONSE = 'response'
+    REQUEST = 'REQUEST'
+    RESPONSE = 'RESPONSE'
 
 
 class MessageFlag(Enum):
     HEARTBEAT = 1
     VERSION = 2
+    TRANSACTION = 3
+
+    @classmethod
+    def from_int(cls, i: int) -> 'MessageFlag':
+        for flag in MessageFlag:
+            if flag.value == i:
+                return flag
+
+        raise ValueError(f'No MessageFlag with value of {i} exists')
 
 
 class Message:
@@ -20,7 +29,7 @@ class Message:
     data, and timestamp.
     """
 
-    def __init__(self, type: MessageType, flag: int, data) -> None:
+    def __init__(self, type: MessageType, flag: MessageFlag, data) -> None:
         """Initializes a message object, does *not* check if information is None"""
         self.type = type
         self.flag = flag
@@ -31,8 +40,8 @@ class Message:
     def validate(self) -> bool:
         """Checks to see whether a message has a valid type, flag, data, and timestamp"""
 
-        is_valid_type = isinstance(self.type, MessageType) and self.type in [MessageType.REQUEST, MessageType.RESPONSE]
-        is_valid_flag = isinstance(self.flag, int) and 0 < self.flag < 100
+        is_valid_type = isinstance(self.type, MessageType) and self.type.value in ['REQUEST', 'RESPONSE']
+        is_valid_flag = isinstance(self.flag, MessageFlag) and 0 < self.flag.value < 100
         is_valid_data = isinstance(self.data, dict)
         is_valid_timestamp = isinstance(self.timestamp, str)
 
@@ -57,9 +66,13 @@ class Message:
         """Returns a serialized version of a Message object. This can be used with
         any function/method in which an encoded message is to be sent.
         """
+        try:
+            m = {"type": self.type.value, "flag": self.flag.value, "data": self.data, "timestamp": self.timestamp}
 
-        return json.dumps(self, default=lambda o: o.__dict__,
-                          sort_keys=True)
+            return json.dumps(m)
+        except Exception as e:
+            print(e)
+            return None
 
 
     @classmethod
@@ -73,18 +86,19 @@ class Message:
             data = json.loads(JSON)
             if not isinstance(data, dict):
                 raise ValueError
-
-            message = Message(
-                type=data['type'], flag=data['flag'], data=data['data'])
+            message_type = MessageType.REQUEST if data['type'] == MessageType.REQUEST.value else MessageType.RESPONSE
+            message_flag = MessageFlag.from_int(data['flag'])
+            message = Message(type=message_type, flag=message_flag, data=data['data'])
             return message
         except ValueError:
-            print(self=self, message='Message data is not a "dict".')
+            print('Message data is not a "dict".')
             return None
         except KeyError:
-            print(self=self, message='Message is not formatted correctly.')
+            print('Message is not formatted correctly.')
             return None
-        except:
-            print(self=self, message='Unable to convert data in Message object.')
+        except Exception as e:
+            print(e)
+            print('Unable to convert data in Message object.')
             return None
 
 # end Message class

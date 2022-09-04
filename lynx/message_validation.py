@@ -1,22 +1,19 @@
 # message.py
 
-from lynx.p2p.message import Message
+from lynx.p2p.message import Message, MessageType, MessageFlag
 
 
 class MessageValidation:
 
     @classmethod
-    # ------------------------------------------------------------------------------
     def validate_version_request(self, message: Message) -> bool:
-        # --------------------------------------------------------------------------
         """Checks to see if incoming version request message is formatted according
         to our standards so node can handle the request without errors.
         """
-        message_keys = {'version': False, 'services': False, 'timestamp': False, 'nonce': False,
-                        'address_from': False, 'address_receive': False, 'sub_version': False, 'start_accounts_count': False, 'relay': False}
+        message_keys = {'version': False, 'address': False, 'port': False}
         is_request_valid = True
 
-        if message.type == 'request' and message.flag == 1 and isinstance(message.data, dict):
+        if message.type is MessageType.REQUEST and message.flag is MessageFlag.VERSION and isinstance(message.data, dict):
             for k in message.data:
                 if k in message_keys:
                     del message_keys[k]

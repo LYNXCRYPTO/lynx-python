@@ -36,14 +36,14 @@ class PeerConnection:
         try:
             host, port = self.socket.getpeername()
 
-            message = self.__make_message(
-                message_type, message_flag, message_data)
+            message = self.__make_message(message_type, message_flag, message_data)
             message_JSON = message.to_JSON()
             message_binary = message_JSON.encode()
             self.socket.send(message_binary)
             print(f'Sent ({host}:{port}) a Message!')
             print(f'Message Information:\n\tType: {message_type}\n\tFlag: {message_flag}\n\tData: {message_data}\n')
-        except:
+        except Exception as e:
+            print(e)
             print(f'Unable to send data: {message_data}')
             return False
         return True
