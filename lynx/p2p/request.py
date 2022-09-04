@@ -1,25 +1,23 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
-import json
 from os import listdir
 from os.path import exists
 from lynx.state import State
 from lynx.p2p.peer import Peer
-from lynx.p2p.message import Message
+from lynx.p2p.message import Message, MessageType, MessageFlag
 from lynx.message_validation import MessageValidation
+from lynx.constants import PROTOCOL_VERSION
 if TYPE_CHECKING:
     from peer_connection import PeerConnection
-    from server import Server
-
+    from lynx.p2p.node import Node
+    
 
 class Request:
 
-    def __init__(self, server: Server, message: Message, peer_connection: PeerConnection) -> None:
+    def __init__(self, node: Node, message: Message, peer_connection: PeerConnection) -> None:
         """"""
 
-        self.debug = 1
-
-        self.server = server
+        self.node = node
         self.message = message
         self.peer_connection = peer_connection
         self.__request_selector()
@@ -27,11 +25,11 @@ class Request:
 
     def __request_selector(self) -> None:
         """"""
-        if self.message.flag == 1:
+        if self.message.flag is MessageFlag.HEARTBEAT:
             self.__handle_heartbeat_request()
-        if self.message.flag == 2:
+        if self.message.flag is MessageFlag.VERSION:
             self.__handle_version_request()
-        elif self.message.flag == 3:
+        elif self.message.flag is MessageFlag.TRANSACTION:
             self.__handle_address_request()
         elif self.message.flag == 4:
             self.__handle_accounts_request()
@@ -44,22 +42,26 @@ class Request:
     def __handle_heartbeat_request(self) -> None:
         """"""
 
-        self.peer_connection.send_data(message_type='response', message_flag=self.message.flag, message_data='PONG')
+        payload = 'PONG'
+
+        self.peer_connection.send_data(message_type=MessageType.RESPONSE, message_flag=self.message.flag, message_data=payload)
         print('Heartbeat Sent!')
 
 
     def __handle_version_request(self) -> None:
         """"""
-        if MessageValidation.validate_version_request(message=self.message) and not self.server.max_peers_reached():
+        if MessageValidation.validate_version_request(message=self.message):
+            peer = Peer(**self.message.data)
+            peer_added = self.node.add_peer(peer)
 
-            peer = Peer(peer_info=self.message.data)
-            self.server.add_peer(peer)
+            if peer_added:
+                payload = {"version": PROTOCOL_VERSION, "address": self.node.server.host, "port": self.node.server.port}
 
-            self.peer_connection.send_data(
-                message_type='response', message_flag=self.message.flag)
+                self.peer_connection.send_data(message_type=MessageType.RESPONSE, message_flag=self.message.flag, message_data=payload)
+            else:
+                print("Max peers reached, unable to add peer")
         else:
-            print(
-                'Version request message is formatted incorrectly, unable to handle message...')
+            print('Version request message is formatted incorrectly, unable to handle message...')
 
 
     def __handle_address_request(self) -> None:
