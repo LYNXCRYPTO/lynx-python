@@ -25,15 +25,44 @@ class MessageValidation:
 
         return is_request_valid
 
+
     @classmethod
-    # ------------------------------------------------------------------------------
     def validate_version_response(self, message: Message) -> bool:
-        # --------------------------------------------------------------------------
         """Checks to see if incoming version reponse message is formatted according
         to our standards so node can handle the request without errors.
         """
 
         return message.type == 'response' and message.flag == 1 and message.data is None
+
+
+    @classmethod
+    def validate_transaction_request(self, message: Message) -> bool:
+        """"""
+
+        message_keys = {'nonce': False, 
+                        'gas_price': False, 
+                        'gas': False, 
+                        "to": False, 
+                        "value": False, 
+                        "data": False,
+                        "v": False, 
+                        "r": False, 
+                        "s": False}
+                        
+        is_request_valid = True
+
+        if message.type is MessageType.REQUEST and message.flag is MessageFlag.TRANSACTION and isinstance(message.data, dict):
+            for k in message.data:
+                if k in message_keys:
+                    del message_keys[k]
+                else:
+                    is_request_valid = False
+                    break
+            if is_request_valid and len(message_keys) > 0:
+                is_request_valid = False
+
+        return is_request_valid
+
 
     @classmethod
     # ------------------------------------------------------------------------------

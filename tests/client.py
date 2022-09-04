@@ -45,14 +45,14 @@ def test_client():
             to=SENDER_ADDRESS,
             value=20,
             data=b''
-            # REGISTRATION_BYTE_CODE,
         )
 
     signed_tx = tx.as_signed_transaction(private_key=SENDER_PRIVATE_KEY)
 
-    version_request_thread = threading.Thread(target=node.broadcast, args=[MessageFlag.VERSION], name='Client Thread')
+    version_request_thread = threading.Thread(target=node.broadcast, args=[MessageFlag.TRANSACTION, signed_tx], name='Client Thread')
     version_request_thread.start()
 
 
 if __name__ == "__main__":
     test_client()
+ 
