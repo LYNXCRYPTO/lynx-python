@@ -11,6 +11,8 @@ from lynx.p2p.response import Response
 from lynx.p2p.message import Message, MessageType, MessageFlag
 from lynx.p2p.mempool import Mempool
 from lynx.constants import *
+from eth.chains.lynx import LynxChain, LYNX_VM_CONFIGURATION
+from eth.db.atomic import AtomicDB
 from eth.vm.forks.lynx.transactions import LynxTransaction
 
 
@@ -23,6 +25,8 @@ class Node:
         """
 
         print('\nConfiguring Node...')
+        # TODO: Make nonce the SHA256 of host
+        self.nonce = uuid.uuid4().hex + uuid.uuid1().hex
         print('Initializing Peer Storage...')
         self.max_peers = int(max_peers)
         self.peers = [Peer(address='127.0.0.1', port='6968')]
@@ -32,12 +36,21 @@ class Node:
         self.mempool = Mempool()
         self.mempool_lock = threading.Lock()
 
-        # TODO: Make nonce the SHA256 of host
-        self.nonce = uuid.uuid4().hex + uuid.uuid1().hex
+        print('Configuring Lynx Virtual Machine...')
+        print('Initializing Blockchain...')
+        self.blockchain : LynxChain = self.__initialize_blockchain()
 
         print('\nConfiguring Server...')
         self.server = Server(self, host=host, port=port)
 
+
+    def __initialize_blockchain(self) -> LynxChain:
+        """Initializes the blockchain."""
+    
+        blockchain_config = LynxChain.configure(__name__='LynxChain', vm_configuration=LYNX_VM_CONFIGURATION)   
+        
+        return blockchain_config.from_genesis(AtomicDB(), {"timestamp": 0}) # pylint: disable=no-member
+        
 
     def connect(self, peer: Peer) -> PeerConnection:
         """Connects to the specified peer and returns the corresponding socket."""
