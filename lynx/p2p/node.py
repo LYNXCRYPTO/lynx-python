@@ -1,49 +1,77 @@
 # node.py
+import uuid
+import threading
+import time
+from typing import Any
 from lynx.p2p.server import Server
 from lynx.p2p.peer import Peer
 from lynx.p2p.peer_connection import PeerConnection
 from lynx.p2p.request import Request
 from lynx.p2p.response import Response
 from lynx.p2p.message import Message, MessageType, MessageFlag
-import uuid
-import threading
+from lynx.p2p.mempool import Mempool
 from lynx.constants import *
+from eth.chains.lynx import LynxChain, LYNX_VM_CONFIGURATION
+from eth.db.atomic import AtomicDB
+from eth.vm.forks.lynx.transactions import LynxTransaction
 
 
 class Node:
     """Implements the core functionality of a node on the Lynx network."""
 
-    def __init__(self, host=None, port=6969, max_peers=12) -> None:
+    def __init__(self, host=None, port=6969, max_peers : int =12) -> None:
         """Initializes a node with the ability to receive requests, store information, and
         handle responses.
         """
 
-        self.max_peers = int(max_peers)
-        self.peers = [Peer(address='10.8.17.101', port='6969')]
-        self.peer_lock = threading.Lock()
-
+        print('\nConfiguring Node...')
         # TODO: Make nonce the SHA256 of host
         self.nonce = uuid.uuid4().hex + uuid.uuid1().hex
+        print('Initializing Peer Storage...')
+        self.max_peers = int(max_peers)
+        self.peers = [Peer(address='127.0.0.1', port='6968')]
+        self.peer_lock = threading.Lock()
 
-        print('\nConfiguring Node...')
+        print('Initializing Mempool...')
+        self.mempool = Mempool()
+        self.mempool_lock = threading.Lock()
+
+        print('Configuring Lynx Virtual Machine...')
+        print('Initializing Blockchain...')
+        self.blockchain : LynxChain = self.__initialize_blockchain()
 
         print('\nConfiguring Server...')
-        self.server = Server(host=host, port=port, nonce=self.nonce)
+        self.server = Server(self, host=host, port=port)
 
 
-    def connect_and_send(self, peer: Peer, message_type: str, message_flag: int, message_data, peer_id=None, retry: bool = True) -> list:
-        """Connects and sends a message to the specified host:port. The host's
-        reply, if expected, will be returned as a list.
-        """
+    def __initialize_blockchain(self) -> LynxChain:
+        """Initializes the blockchain."""
+    
+        blockchain_config = LynxChain.configure(__name__='LynxChain', vm_configuration=LYNX_VM_CONFIGURATION)   
+        
+        return blockchain_config.from_genesis(AtomicDB(), {"timestamp": 0}) # pylint: disable=no-member
+        
+
+    def connect(self, peer: Peer) -> PeerConnection:
+        """Connects to the specified peer and returns the corresponding socket."""
+
+        peer_connection = PeerConnection(host=peer.address, port=peer.port)
+
+        return peer_connection
+
+    
+    def send(self, peer_connection: PeerConnection, message_type: str, message_flag: int, message_data, retry: bool = True) -> list:
+        """Sends a message to the specified peer connection."""
 
         message_replies = []
 
         try:
-            peer_connection = PeerConnection(host=peer.address, port=peer.port, peer_id=peer_id)
+            start_time = time.time()
             peer_connection.send_data(message_type, message_flag, message_data)
 
             if message_type is MessageType.REQUEST:
-                print(f'Attempting to receive a response from ({peer_id})...')
+                host, port = peer_connection.socket.getpeername()
+                print(f'Attempting to receive a response from ({host}:{port})...')
                 reply : Message = peer_connection.receive_data()
 
                 while reply is not None:
@@ -57,61 +85,92 @@ class Node:
                     if r.type is MessageType.REQUEST:
                         Request(self, r, peer_connection)
                     elif r.type is MessageType.RESPONSE:
-                        Response(self, r, peer_connection)
+                        end_time = time.time()
+                        response_time = end_time - start_time
+                        Response(self, r, peer_connection, response_time)
                     else:
                         print(f'Unable to handle message type of "{r.type}"')
 
             peer_connection.close()
 
-        except:
-            print(f'Unable to send message to peer ({peer.address} : {peer.port}).')
+        except Exception as e:
+            print(e)
             if retry:
                 print('Retrying...')
 
         if not message_replies and retry:
-            return self.connect_and_send(peer, message_type, message_flag, message_data, peer_id, retry=False)
+            return self.send(peer_connection, message_type, message_flag, message_data, retry=False)
             
         return message_replies
 
 
-    def broadcast(self, flag: MessageFlag):
+    def broadcast(self, flag: MessageFlag, payload: Any = None):
         """Broadcasts a message to all known peers."""
         print("HELLO")
         for peer in self.peers:
             if flag is MessageFlag.HEARTBEAT:
-                self.send_heartbeat_request(peer)
+                thread = threading.Thread(target=self.send_heartbeat, args=[peer], name=f'Heartbeat Thread ({peer.address})')
             elif flag is MessageFlag.VERSION:
-                # self.send_version_request()
-                pass
+                thread = threading.Thread(target=self.send_version, args=[peer], name=f'Version Thread ({peer.address})')
+            elif flag is MessageFlag.TRANSACTION:
+                thread = threading.Thread(target=self.send_transaction, args=[peer, payload], name=f'Transaction Thread ({peer.address})')
+            thread.start()
 
 
-    def send_heartbeat_request(self, peer: Peer):
+    def send_heartbeat(self, peer: Peer):
         """"""
 
-        heartbeat_thread = threading.Thread(target=self.connect_and_send, args=[peer, MessageType.REQUEST, MessageFlag.HEARTBEAT, "PING"], name=f'Heartbeat Thread ({peer.address})')
-        heartbeat_thread.start()
+        payload = 'PING'
+
+        peer_connection = self.connect(peer)
+        self.send(peer_connection, MessageType.REQUEST, MessageFlag.HEARTBEAT, payload)
         print('Heartbeat request sent!')
 
+    
+    def send_version(self, peer: Peer):
+        """"""
 
-    # def add_peer(self, peer: Peer) -> bool:
-    #     """Adds a peer name and host:port mapping to the known list of peers."""
+        payload = {"version": PROTOCOL_VERSION, "address": self.server.host, "port": self.server.port}
 
-    #     peer_id = '{}:{}'.format(peer.host, peer.port)
-    #     if peer_id not in self.peers and (self.max_peers == 0 or len(self.peers) < self.max_peers):
-    #         self.peer_lock.acquire()
-    #         self.peers[peer_id] = peer
-    #         self.peer_lock.release()
-    #         self.__debug('Peer added: (%s)' % peer_id)
-    #         return True
-
-    #     return False
+        peer_connection = self.connect(peer)
+        self.send(peer_connection, MessageType.REQUEST, MessageFlag.VERSION, payload)
+        print('Version request sent!')
 
 
-    def get_peer(self, peer_id) -> tuple:
+    def send_transaction(self, peer: Peer, tx: LynxTransaction):
+        """"""
+
+        transaction = tx.as_dict()
+        transaction['to'] = transaction['to'].hex()
+        transaction['data'] = transaction['data'].hex()
+        payload = transaction
+
+        peer_connection =self.connect(peer)
+        self.send(peer_connection, MessageType.REQUEST, MessageFlag.TRANSACTION, payload)
+        print('Transaction sent!')
+
+
+
+    def add_peer(self, peer: Peer) -> bool:
+        """Adds a peer to the known list of peers."""
+
+        if not self.max_peers_reached() and peer not in self.peers:
+            self.peer_lock.acquire()
+            self.peers.append(peer)
+            self.peer_lock.release()
+            return True
+
+        return False
+
+
+    def get_peer(self, address: str, port: str) -> Peer:
         """Returns the (host, port) tuple for the given peer name."""
 
-        assert(peer_id in self.peers)  # maybe make this just return NULL
-        return self.peers[peer_id]
+        for peer in self.peers:
+            if peer.address == address and peer.port == port:
+                return peer
+
+        return None
 
 
     # def remove_peer(self, peer_id) -> None:
@@ -159,7 +218,7 @@ class Node:
         """
 
         assert(self.max_peers == 0 or len(self.peers) <= self.max_peers)
-        return self.max_peers > 0 and len(self.peers) == self.max_peers
+        return len(self.peers) == self.max_peers
 
 
 # end Node class
