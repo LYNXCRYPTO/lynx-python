@@ -1,22 +1,19 @@
 # message.py
 
-from lynx.p2p.message import Message
+from lynx.p2p.message import Message, MessageType, MessageFlag
 
 
 class MessageValidation:
 
     @classmethod
-    # ------------------------------------------------------------------------------
     def validate_version_request(self, message: Message) -> bool:
-        # --------------------------------------------------------------------------
         """Checks to see if incoming version request message is formatted according
         to our standards so node can handle the request without errors.
         """
-        message_keys = {'version': False, 'services': False, 'timestamp': False, 'nonce': False,
-                        'address_from': False, 'address_receive': False, 'sub_version': False, 'start_accounts_count': False, 'relay': False}
+        message_keys = {'version': False, 'address': False, 'port': False}
         is_request_valid = True
 
-        if message.type == 'request' and message.flag == 1 and isinstance(message.data, dict):
+        if message.type is MessageType.REQUEST and message.flag is MessageFlag.VERSION and isinstance(message.data, dict):
             for k in message.data:
                 if k in message_keys:
                     del message_keys[k]
@@ -28,15 +25,44 @@ class MessageValidation:
 
         return is_request_valid
 
+
     @classmethod
-    # ------------------------------------------------------------------------------
     def validate_version_response(self, message: Message) -> bool:
-        # --------------------------------------------------------------------------
         """Checks to see if incoming version reponse message is formatted according
         to our standards so node can handle the request without errors.
         """
 
         return message.type == 'response' and message.flag == 1 and message.data is None
+
+
+    @classmethod
+    def validate_transaction_request(self, message: Message) -> bool:
+        """"""
+
+        message_keys = {'nonce': False, 
+                        'gas_price': False, 
+                        'gas': False, 
+                        "to": False, 
+                        "value": False, 
+                        "data": False,
+                        "v": False, 
+                        "r": False, 
+                        "s": False}
+                        
+        is_request_valid = True
+
+        if message.type is MessageType.REQUEST and message.flag is MessageFlag.TRANSACTION and isinstance(message.data, dict):
+            for k in message.data:
+                if k in message_keys:
+                    del message_keys[k]
+                else:
+                    is_request_valid = False
+                    break
+            if is_request_valid and len(message_keys) > 0:
+                is_request_valid = False
+
+        return is_request_valid
+
 
     @classmethod
     # ------------------------------------------------------------------------------
