@@ -1,5 +1,7 @@
-from eth_typing import BlockNumber
-from lynx.wallet import Wallet
+from typing import Tuple
+from eth_typing import BlockNumber, Address
+from eth_account import Account
+from eth_account.messages import encode_defunct
 
 
 class VRF:
@@ -10,19 +12,29 @@ class VRF:
     """
 
     @classmethod
-    def generate_random_number(self, block_number: BlockNumber, stake: int, wallet: Wallet) -> int:
+    def generate_random_number(cls, block_number: BlockNumber, account: Account) -> Tuple[int, int]:
         """Generates a psuedorandom number based on an account's
-        private keys. Uses the Wallet object to manage the account's
+        private keys. Uses the Account object to manage the account's
         private keys.
         """
         
-        signature = wallet.sign(block_number)
+        message_hash = encode_defunct(text=str(block_number))
+        
+        signed_message = account.sign_message(message_hash)
 
-        rand_num = int.from_bytes(signature, 'big') * stake
-
-        return rand_num
+        return (block_number, int.from_bytes(signed_message.signature, 'big'))
 
 
         
+    @classmethod 
+    def verify_random_number(cls, block_number: BlockNumber, address: Address, campaign: int) -> bool:
+        """"""
 
+        message_hash = encode_defunct(text=str(block_number))
+
+        address_hex = Account.recover_message(signable_message=message_hash, signature=campaign)
+
+        account_address = Address(bytes.fromhex(address_hex[2:]))
+
+        return account_address == address
 

@@ -2,7 +2,6 @@ from cmath import sqrt
 from random import random
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import AES
-from math import log
 
 class VDF:
 

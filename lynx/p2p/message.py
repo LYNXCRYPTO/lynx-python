@@ -14,6 +14,9 @@ class MessageFlag(Enum):
     HEARTBEAT = 1
     VERSION = 2
     TRANSACTION = 3
+    ADDRESS = 4
+    BLOCK = 5
+    CAMPAIGN = 6
 
     @classmethod
     def from_int(cls, i: int) -> 'MessageFlag':

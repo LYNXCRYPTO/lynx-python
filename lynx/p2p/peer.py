@@ -31,14 +31,29 @@ class Peer:
 
 
     def __getattribute__(self, name):
+        """"""
+        
         return object.__getattribute__(self, name)
 
 
     def as_dict(self) -> dict:
+        """"""
+
         return self.__dict__
 
     
     def __str__(self) -> str:
+        """"""
+
         return f'<Peer ({self.address}:{self.port})>'
+
+    
+    def __eq__(self, other): 
+        """"""
+
+        if not isinstance(other, Peer):
+            return False
+
+        return self.address == other.address and self.port == other.port
 
 # end Peer class

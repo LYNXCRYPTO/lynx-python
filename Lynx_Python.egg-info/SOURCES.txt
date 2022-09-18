@@ -26,6 +26,7 @@ lynx/consensus/snowball.py
 lynx/consensus/vdf.py
 lynx/consensus/vrf.py
 lynx/p2p/__init__.py
+lynx/p2p/mempool.py
 lynx/p2p/message.py
 lynx/p2p/node.py
 lynx/p2p/peer.py
