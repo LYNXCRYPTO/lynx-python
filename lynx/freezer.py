@@ -1,11 +1,11 @@
 from pathlib import Path
-from pprint import isreadable
 import sys
 from typing import (
     Sequence,
     Union,
     Any,
     Tuple,
+    List
 )
 from enum import Enum
 from lynx.p2p.peer import Peer
@@ -69,6 +69,7 @@ class Freezer:
     def __create_freezer_dir(cls) -> None:
         current_working_directory = Path.cwd()
         Path(current_working_directory / 'freezer').mkdir(exist_ok=True)
+
 
     @classmethod
     def chain_dir_exists(cls) -> bool:
@@ -332,6 +333,7 @@ class Freezer:
         header = cls.read_chain_data_file(StorageType.HEADERS, file_num, offset, next_block_offset)
         return header
 
+
     @classmethod
     def get_block_transactions_by_number(cls, block_number: BlockNumber) -> Sequence[SignedTransactionAPI]:
         
@@ -390,10 +392,38 @@ class Freezer:
 
         return file_num
 
+
     @classmethod
     def store_peer(cls, peer: Peer) -> None:
         """Adds the given peer to the freezer"""
+
         if not cls.freezer_exists():
             cls.create_freezer()
 
         cls.__store_peer_data(peer)
+
+
+    @classmethod
+    def get_peers(cls, max_peers: int = 25) -> Tuple[Peer]:
+        """"""
+
+        if not cls.freezer_exists():
+            cls.create_freezer()
+            return ()
+        
+        current_working_directory = Path.cwd()
+        data_directory = Path(current_working_directory / 'freezer' / 'peers' / 'data')
+        files = list(data_directory.glob('peers.*.json'))
+
+        peers : List[Peer] = []
+
+        for f in files:
+            file_path = Path(f)
+            with open(file_path, 'r') as file:
+                file_contents = json.load(file)
+                for key, value in file_contents.items():
+                    if len(peers) < max_peers:
+                        peer : Peer = Peer(address=value['address'], port=value['port'])
+                        peers.append(peer)
+
+        return tuple(peers)

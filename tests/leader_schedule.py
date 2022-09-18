@@ -1,13 +1,21 @@
-from lynx.consensus.leader_schedule import LeaderSchedule
-from lynx.wallet import Wallet
-from lynx.consensus.epoch import Epoch
+from lynx.consensus.leader_schedule import Leader, LeaderSchedule
+from lynx.consensus.epoch_context import EpochContext
+from lynx.consensus.vrf import VRF
+from eth_account import Account
+from eth.constants import ZERO_ADDRESS
 
 
 def test_leader_schedule():
-    wallet = Wallet()
-    epoch = Epoch(start=0, slot_num=10, slot_length=10)
+    account = Account.create()
+    campaign = VRF.generate_random_number(1, account, 69)
+    leader_schedule = LeaderSchedule()
+    leader = Leader(address=ZERO_ADDRESS, stake=69, campaign=campaign)
+    print("Before:")
+    print(leader_schedule)
 
-    LeaderSchedule.generate_campaign(epoch=epoch, wallet=wallet)
+    leader_schedule.add_leader(1, leader)
+    print("After:")
+    print(leader_schedule)
 
 if __name__ == '__main__':
     test_leader_schedule()

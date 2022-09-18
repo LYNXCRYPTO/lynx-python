@@ -7,15 +7,15 @@ from lynx.inventory import Inventory
 from lynx.p2p.peer_connection import PeerConnection
 from lynx.p2p.request import Request
 from lynx.p2p.response import Response
-from lynx.p2p.message import Message
-from lynx.constants import PROTOCOL_VERSION, NODE_SERVICES, SUB_VERSION
+from lynx.p2p.message import Message, MessageType
+from lynx.constants import DEFAULT_PORT
 if TYPE_CHECKING:
     from lynx.p2p.node import Node
 
 
 class Server:
 
-    def __init__(self, node: 'Node', port=6969, host=None) -> None:
+    def __init__(self, node: 'Node', port: str = DEFAULT_PORT, host=None) -> None:
         """Initializes a servent with the ability to index information
         for up to max_nodes number of peers (max_nodes may be set to 0 to allow for an
         unlimited number of peers), listening on a given server port, with a given
@@ -24,8 +24,8 @@ class Server:
         """
 
         self.node = node
+        self.port = port
 
-        self.port = int(port)
         if host:
             self.host = host
         else:
@@ -61,7 +61,7 @@ class Server:
 
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server_socket.bind(('', port))
+        server_socket.bind(('', int(port)))
         server_socket.listen(backlog)
         return server_socket
 
@@ -77,12 +77,13 @@ class Server:
             print(f'Peer Connection Information:\n\tHost: {host} (IPV4)\n\tPort: {port}\n')
             peer_connection = PeerConnection(peer_id=None, host=host, port=port, sock=client_socket)
 
-            message = peer_connection.receive_data()
+            message : Message = peer_connection.receive_data()
 
             if message is None or not message.validate():
+                print(message.data)
                 raise ValueError
 
-            if message.type.lower() == 'request':
+            if message.type is MessageType.REQUEST:
                 print(f'Received request from ({host}:{port})')
                 print(f'Request Information:\n\tType: {message.type}\n\tFlag: {message.flag}\n\tData: {message.data}\n')
 
@@ -90,8 +91,8 @@ class Server:
             # elif message.message.type.upper() == 'RESPONSE':
             #     Response(node=self, message=message)
 
-        except ValueError:
-            traceback.print_exc()
+        except ValueError as e:
+            print(e)
             print('Message received was not formatted correctly or was of None value.')
         except Exception as e:
             print(e)

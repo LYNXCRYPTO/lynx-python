@@ -11,7 +11,7 @@ import threading
 
 
 def test_client():
-    node = Node(port='6969')
+    node = Node(port='6969', peers=[Peer(address='127.0.0.1', port='6968')])
 
     SENDER_PRIVATE_KEY = keys.PrivateKey(bytes.fromhex('45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8'))
     SENDER_ADDRESS = Address(SENDER_PRIVATE_KEY.public_key.to_canonical_address())
@@ -49,7 +49,13 @@ def test_client():
 
     signed_tx = tx.as_signed_transaction(private_key=SENDER_PRIVATE_KEY)
 
-    version_request_thread = threading.Thread(target=node.broadcast, args=[MessageFlag.TRANSACTION, signed_tx], name='Client Thread')
+    blockchain.apply_transaction(signed_tx)
+
+    blockchain.forge_block()
+
+    block : LynxBlock = blockchain.get_canonical_block_by_number(1)
+
+    version_request_thread = threading.Thread(target=node.broadcast, args=[MessageFlag.CAMPAIGN, node.peers], name='Client Thread')
     version_request_thread.start()
 
 
