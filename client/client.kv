@@ -1,0 +1,88 @@
+
+
+#:import get_color_from_hex kivy.utils.get_color_from_hex
+#:import Gradient kivy_gradient.Gradient
+
+<FlatButton@ButtonBehavior+Label>:
+    text: 'default'
+<ClientWindow>:
+    id: client_window
+    rows:3
+    cols:2
+    spacing: 10
+    canvas.before:
+        Color:
+            rgba: (1, 1, 1, 1)
+        Rectangle:
+            pos: self.pos
+            size: self.size
+    BoxLayout:
+        id: content_nav
+        BoxLayout:
+            id: nav_tabs
+            size_hint_x: .1
+            orientation: 'vertical'
+            spacing: 5
+            canvas.before:
+                Color:
+                    rgba: get_color_from_hex('#492EED')
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+            Button:
+                id: info
+                background_normal: 'download.png'
+                on_release: info_dropdown.open(self)
+                size_hint_y:.1
+                height: 30
+                Widget:
+                    on_parent: info_dropdown.dismiss()
+                    DropDown:
+                        id: info_dropdown
+                        Button:
+                            id: close
+                            text: 'Quit' 
+                            size_hint_y: None
+                            height: 30
+            ToggleButton:
+                id: wallet_toggle
+                text: 'Wallet'
+                size_hint_y: .1
+                background_color: get_color_from_hex('#492EED')
+                background_normal: ''
+            ToggleButton:
+                id: network_toggle
+                text: 'Network'
+                size_hint_y: .1
+                background_color: get_color_from_hex('#492EED')
+                background_normal: ''
+            ToggleButton:
+                id: transactions_toggle
+                text: 'Transactions'
+                size_hint_y: .1
+                background_color: get_color_from_hex('#492EED')
+                background_normal: ''
+            Label:
+                id: sp
+                text: ''
+                size_hint_y: .4
+        BoxLayout:
+            id: content
+            size_hint_x: .7 
+    BoxLayout:
+        id: dashboard
+        orientation: 'vertical'
+        size_hint_x: .2
+        canvas.before:
+            Color:
+                rgba: get_color_from_hex('#492EED')
+            Rectangle:
+                pos: self.pos
+                size: self.size
+    
+
+
+
+            
+
+    

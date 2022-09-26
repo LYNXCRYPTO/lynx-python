@@ -1,0 +1,15 @@
+Metadata-Version: 2.1
+Name: Lynx-Python
+Version: 0.0.1
+Summary: A Python implementation of the Lynx Virtual Machine
+Home-page: https://github.com/LYNXCRYPTO/lynx-python
+Author: Lynx Foundation
+Author-email: jordan@protocoding.com
+Keywords: lynx blockchain lvm
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
