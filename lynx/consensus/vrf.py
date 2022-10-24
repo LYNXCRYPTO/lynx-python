@@ -13,9 +13,9 @@ class VRF:
 
     @classmethod
     def generate_random_number(cls, block_number: BlockNumber, account: Account) -> Tuple[int, int]:
-        """Generates a psuedorandom number based on an account's
-        private keys. Uses the Account object to manage the account's
-        private keys.
+        """
+        Generates a psuedorandom number based on an account's private keys. Uses the Account 
+        object to manage the account's private keys.
         """
         
         message_hash = encode_defunct(text=str(block_number))
@@ -28,7 +28,11 @@ class VRF:
         
     @classmethod 
     def verify_random_number(cls, block_number: BlockNumber, address: Address, campaign: int) -> bool:
-        """"""
+        """
+        Verifies the a validator's campaign to see whether it was actually signed by their corresponding
+        private key. In order for this function to evaluate successful, the block number in which the validator
+        generates a campaign for must be signed by their private key.
+        """
 
         message_hash = encode_defunct(text=str(block_number))
 

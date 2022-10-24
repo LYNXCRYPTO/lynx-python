@@ -2,10 +2,32 @@ from typing import (
     Tuple,
     Type,    
     Any,
+    Dict,
 )
+from eth.typing import (
+    AccountState,
+    HeaderParams,
+    StaticMethod,
+)
+from eth._utils.db import (
+    apply_state_dict,
+)
+from eth._warnings import catch_and_ignore_import_warning
+with catch_and_ignore_import_warning():
+    from eth_utils import (
+        ValidationError,
+    )
+    from eth_utils.toolz import (
+        assoc,
+    )
+from eth.vm.chain_context import ChainContext
 from eth_typing import (BlockNumber)
-from eth.chains.base import MiningChain
+from eth.chains.base import BaseChain, MiningChain
 from eth.vm.forks.lynx import LynxVM
+from eth.vm.forks.lynx.blocks import LynxBlock
+from eth.vm.forks.lynx.transactions import LynxTransaction
+from eth.constants import CREATE_CONTRACT_ADDRESS
+from eth.abc import AtomicDatabaseAPI
 from eth.vm.forks.lynx.constants import (
     GENESIS_EPOCH,
     GENESIS_SLOT,
@@ -14,7 +36,7 @@ from eth.vm.forks.lynx.constants import (
     GENESIS_SLOT_SIZE,
 )
 from eth.vm.forks.lynx.blocks import LynxBlockHeader
-from .constants import (LYNX_CHAIN_ID)
+from .constants import LYNX_CHAIN_ID, SATOSHIS_PRIVATE_KEY
 from eth.abc import (
     VirtualMachineAPI,
 )
@@ -41,6 +63,68 @@ class BaseLynxChain:
 
 
 class LynxChain(BaseLynxChain, MiningChain):
+
+    # Genesis
+    # @classmethod
+    # def from_genesis(cls,
+    #                  base_db: AtomicDatabaseAPI,
+    #                  genesis_params: Dict[str, HeaderParams],
+    #                  genesis_state: AccountState = None) -> 'BaseChain':
+    #     genesis_vm_class = cls.get_vm_class_for_block_number(BlockNumber(0))
+
+    #     pre_genesis_header = BlockHeader(difficulty=0, block_number=-1, gas_limit=0)
+    #     chain_context = ChainContext(cls.chain_id)
+    #     state = genesis_vm_class.build_state(base_db, pre_genesis_header, chain_context)
+
+    #     if genesis_state is None:
+    #         genesis_state = {}
+
+    #     # mutation
+    #     apply_state_dict(state, genesis_state)
+    #     state.persist()
+
+    #     if 'state_root' not in genesis_params:
+    #         # If the genesis state_root was not specified, use the value
+    #         # computed from the initialized state database.
+    #         genesis_params = assoc(genesis_params, 'state_root', state.state_root)
+    #     elif genesis_params['state_root'] != state.state_root:
+    #         # If the genesis state_root was specified, validate that it matches
+    #         # the computed state from the initialized state database.
+    #         raise ValidationError(
+    #             "The provided genesis state root does not match the computed "
+    #             f"genesis state root.  Got {state.state_root!r}.  "
+    #             f"Expected {genesis_params['state_root']!r}"
+    #         )
+
+    #     genesis_header = genesis_vm_class.create_genesis_header(**genesis_params)
+    #     return cls.from_genesis_header(base_db, genesis_header)
+
+    # @classmethod
+    # def from_genesis_header(cls, base_db: AtomicDatabaseAPI, genesis_header: BlockHeaderAPI) -> BaseChain:
+    #     chaindb = cls.get_chaindb_class()(base_db)
+    #     vm : LynxVM = cls.get_vm_class_for_block_number(BlockNumber(0))
+
+    #     tx = vm.create_unsigned_transaction(
+    #         nonce=0,
+    #         gas_price=0,
+    #         gas=100000,
+    #         to=CREATE_CONTRACT_ADDRESS,
+    #         value=0,
+    #         data=b''
+    #     )
+    #     signed_tx = tx.as_signed_transaction(SATOSHIS_PRIVATE_KEY)
+        
+    #     tx_root = chaindb.add_transaction(genesis_header, b'', signed_tx)
+    #     gh = genesis_header.copy(transaction_root=tx_root)
+    #     block = LynxBlock(header=gh, transactions=[signed_tx])
+
+    #     chaindb.persist_header(gh)
+    #     chain = cls(base_db)
+    #     block = chain.apply_transaction(signed_tx)[0]
+    #     print(block.as_dict())
+    #     chain
+    #     return cls(base_db)
+
 
     # Forging
     def forge_block(self, *args: Any, **kwargs: Any) -> BlockAndMetaWitness:

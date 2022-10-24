@@ -1,0 +1,21 @@
+Metadata-Version: 2.1
+Name: snappy-manifolds
+Version: 1.1.2
+Summary: Database of snappy manifolds
+Home-page: https://github.com/3-manifolds/snappy_manifolds
+Author: Marc Culler and Nathan M. Dunfield and Mattias Goerner and Malik Obeidin
+Author-email: snappy-help@computop.org, mobeidin@illiois.edu
+License: GPLv2+
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: C
+Classifier: Programming Language :: Cython
+Classifier: Programming Language :: Python
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+
+This is a python package of the Manifolds from snappy, separated out.
+
+

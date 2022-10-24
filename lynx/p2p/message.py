@@ -4,22 +4,36 @@ from datetime import datetime
 import json
 
 class MessageType(Enum):
-    """Enum for the different types of storage within the client's freezer"""
+    """
+    Enum for the different types of messages used on the Lynx peer-to-peer network.
+    Requests are messages to other nodes requesting information.
+    Responses are messsages that provide information regarding a request.
+    """
 
     REQUEST = 'REQUEST'
     RESPONSE = 'RESPONSE'
 
 
 class MessageFlag(Enum):
+    """
+    Enum specifiying the different subjects a message can be regarding.
+    """
+    
     HEARTBEAT = 1
     VERSION = 2
     TRANSACTION = 3
     ADDRESS = 4
     BLOCK = 5
     CAMPAIGN = 6
+    QUERY = 7
 
     @classmethod
     def from_int(cls, i: int) -> 'MessageFlag':
+        """
+        From an integer, returns the corresponding message flag. If the integer provided
+        does not correspond with a message flag, then a ValueError is thrown.
+        """
+        
         for flag in MessageFlag:
             if flag.value == i:
                 return flag
@@ -28,7 +42,8 @@ class MessageFlag(Enum):
 
 
 class Message:
-    """Unsigned transactions with information regarding a message's type, flag,
+    """
+    Unsigned transactions with information regarding a message's type, flag,
     data, and timestamp.
     """
 
@@ -41,7 +56,9 @@ class Message:
 
 
     def validate(self) -> bool:
-        """Checks to see whether a message has a valid type, flag, data, and timestamp"""
+        """
+        Checks to see whether a message has a valid type, flag, data, and timestamp
+        """
 
         is_valid_type = isinstance(self.type, MessageType) and self.type.value in ['REQUEST', 'RESPONSE']
         is_valid_flag = isinstance(self.flag, MessageFlag) and 0 < self.flag.value < 100
@@ -80,8 +97,8 @@ class Message:
 
     @classmethod
     def from_JSON(self, JSON: str):
-
-        """"Returns a Message object given a JSON input. If JSON is not formatted 
+        """"
+        Returns a Message object given a JSON input. If JSON is not formatted 
         correctly, this method will return None.
         """
 

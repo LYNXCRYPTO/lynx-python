@@ -1,7 +1,7 @@
-from eth.vm.forks.frontier.computation import FrontierComputation
+from eth.vm.forks.constantinople.computation import ConstantinopleComputation
 
 
-class LynxComputation(FrontierComputation):
+class LynxComputation(ConstantinopleComputation):
     """
     A class for all execution computations in the ``Lynx`` fork.
     Inherits from :class:`~eth.vm.forks.frontier.FrontierComputation`.

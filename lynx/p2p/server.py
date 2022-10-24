@@ -1,13 +1,12 @@
 import socket
 import threading
-import requests
+import multiprocess
 from typing import TYPE_CHECKING
-from lynx.p2p.peer import Peer
-from lynx.inventory import Inventory
 from lynx.p2p.peer_connection import PeerConnection
 from lynx.p2p.request import Request
 from lynx.p2p.response import Response
 from lynx.p2p.message import Message, MessageType
+from lynx.p2p.ip import IP
 from lynx.constants import DEFAULT_PORT
 if TYPE_CHECKING:
     from lynx.p2p.node import Node
@@ -15,7 +14,7 @@ if TYPE_CHECKING:
 
 class Server:
 
-    def __init__(self, node: 'Node', port: str = DEFAULT_PORT, host=None) -> None:
+    def __init__(self, node: 'Node', host : str = None, port: str = DEFAULT_PORT) -> None:
         """Initializes a servent with the ability to index information
         for up to max_nodes number of peers (max_nodes may be set to 0 to allow for an
         unlimited number of peers), listening on a given server port, with a given
@@ -23,34 +22,21 @@ class Server:
         will be determined by attempting to connect to an Internet host like Google.
         """
 
+        print('\nConfiguring Server...')
         self.node = node
         self.port = port
 
+        print("Resolving IP Address...")
         if host:
             self.host = host
         else:
-            self.__init_server_host()
-
-        # self.account_inventory = Inventory(on_extension=self.send_all_peers_request, flag=4)
-        # self.state_inventory = Inventory(on_extension=self.send_all_peers_request, flag=5)
-
-        self.account_inventory_lock = threading.Lock()
-        self.state_inventory_lock = threading.Lock()
+            self.host = IP.get_external_ip()
 
         self.shutdown = False  # condition used to stop server listen
 
         print('Configuring Port...')
         print('Server Configured!')
         print(f'Server Information:\n\tHost: {self.host} (IPV4)\n\tPort: {self.port}\n')
-
-
-    def __init_server_host(self) -> None:
-        """Attempts to connect to an Internet host like Google to determine
-        the local machine's IP address.
-        """
-        print("Configuring IP Address...")
-        ip_request = requests.request('GET', 'http://myip.dnsomatic.com')
-        self.host = ip_request.text
 
 
     def make_server_socket(self, port, backlog=5) -> socket.socket:
@@ -92,18 +78,22 @@ class Server:
             #     Response(node=self, message=message)
 
         except ValueError as e:
+            peer_connection = None
             print(e)
             print('Message received was not formatted correctly or was of None value.')
         except Exception as e:
+            peer_connection = None
             print(e)
             print('Failed to handle message')
 
-        print('Disconnecting from ' + str(client_socket.getpeername()))
+        if peer_connection and peer_connection.is_open():
+            print('Disconnecting from ' + str(client_socket.getpeername()))
+            peer_connection.close()
+
         print('\n********************')
-        peer_connection.close()
 
 
-    def start_server_listen(self) -> None:
+    def start_server_listen(self, q, ls) -> None:
         """"""
 
         server_socket = self.make_server_socket(self.port)
@@ -112,10 +102,12 @@ class Server:
         print('Server Has Started Listening For Incoming Connections...')
 
         while not self.shutdown:
+            if q.empty():
+                print(ls)
             try:
                 client_socket, client_address = server_socket.accept()
                 client_socket.settimeout(None)
-
+                
                 client_thread = threading.Thread(target=self.__handle_peer, args=[client_socket], name=('Client Thread'))
                 client_thread.start()
             except KeyboardInterrupt:

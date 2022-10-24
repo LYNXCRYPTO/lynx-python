@@ -1,10 +1,14 @@
 # node.py
 import uuid
 import threading
+import multiprocess
+from multiprocess import Queue
 import time
 import socket
 from typing import Any, List
 from lynx.consensus.epoch_context import EpochContext
+from lynx.consensus.generator import Generator
+from lynx.consensus.snowball import SnowballConsensus
 from lynx.p2p.bootstrap import Bootstrap
 from lynx.p2p.server import Server
 from lynx.p2p.peer import Peer
@@ -23,12 +27,15 @@ from eth.db.atomic import AtomicDB
 from eth.vm.forks.lynx.transactions import LynxTransaction
 from eth.vm.forks.lynx.blocks import LynxBlock, LynxBlockHeader
 from eth_account import Account
+from eth_typing import Address, Hash32
+from eth_keys import keys
 
 class Node:
     """Implements the core functionality of a node on the Lynx network."""
 
-    def __init__(self, host=None, port: str = DEFAULT_PORT, peers: List[Peer] = [], max_peers: int = DEFAULT_MAX_PEERS) -> None:
-        """Initializes a node with the ability to receive requests, store information, and
+    def __init__(self, host: str = None, port: str = DEFAULT_PORT, peers: List[Peer] = [], max_peers: int = DEFAULT_MAX_PEERS) -> None:
+        """
+        Initializes a node with the ability to receive requests, store information, and
         handle responses.
         """
 
@@ -40,9 +47,8 @@ class Node:
         print('Initializing Peer Storage...')
         self.max_peers = int(max_peers)
         self.peers = peers
-        self.peer_lock = threading.Lock()
+        # self.peer_lock = threading.Lock()
 
-        print('\nConfiguring Server...')
         self.server = Server(self, host=host, port=port)
 
         print('Configuring Lynx Virtual Machine...')
@@ -52,9 +58,13 @@ class Node:
         print('Initializing Mempool...')
         self.mempool = Mempool()
 
-        print('Initializing Leader Schedule')
+        print('Initializing Leader Schedule...')
         self.leader_schedule = LeaderSchedule()
 
+        print('Initializing Consensus Engine...')
+        self.snowball = SnowballConsensus()
+        
+        self.is_bootstrapping = True
         print('Configuring Bootstrap Process...')
         known_peers = Freezer.get_peers()
         if known_peers:
@@ -62,14 +72,36 @@ class Node:
                 
         if len(self.peers) < max_peers:
             Bootstrap.from_seeds(self)
+        
+        # self.queue = multiprocess.Queue()
+        # self.queue.put("SOMETHING")
+
+        # if not self.is_bootstrapping:
+        #     head : LynxBlockHeader = self.blockchain.get_canonical_head()
+        #     epoch = EpochContext(start=(head.block_number - (head.epoch_block_number - 1)), slot=head.slot, size=head.epoch_size, slot_size=head.slot_size)
+        #     self.generator = Generator(self, epoch)
+        #     p1 = multiprocess.Process(target=self.generator.start_generator, args=(self.queue,), name='Generator Process')
+        #     p1.start()
+        
+        # self.server.start_server_listen(self.queue, self.leader_schedule)
+
 
 
     def __initialize_blockchain(self) -> LynxChain:
         """Initializes the blockchain."""
 
+        SENDER_PRIVATE_KEY = keys.PrivateKey(bytes.fromhex('45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8'))
+        SENDER_ADDRESS = Address(SENDER_PRIVATE_KEY.public_key.to_canonical_address())
+
         GENESIS_STATE = {
+            SENDER_ADDRESS: {
+                'balance': 69,
+                'nonce': 0,
+                'code': b'',
+                'storage': {},
+            },
             REGISTRY_CONTRACT_ADDRESS: {
-                'balance': 0,
+                'balance': 69,
                 'nonce': 0,
                 'code': Registry.get_deployed_bytecode(),
                 'storage': {},
@@ -81,11 +113,11 @@ class Node:
         return blockchain_config.from_genesis(AtomicDB(), {"timestamp": 0}, GENESIS_STATE)
         
 
-    def connect(self, peer: Peer) -> PeerConnection:
+    def connect(self, peer: Peer, socket_kind : socket.SocketKind = socket.SOCK_STREAM) -> PeerConnection:
         """Connects to the specified peer and returns the corresponding socket."""
 
         try:
-            peer_connection = PeerConnection(host=peer.address, port=peer.port)
+            peer_connection = PeerConnection(host=peer.address, port=peer.port, socket_kind=socket_kind)
 
             return peer_connection
         
@@ -132,7 +164,7 @@ class Node:
         except Exception as error:
             print(error)
         
-        if retry and not message_replies:
+        if retry and wait_for_reply and not message_replies:
             print('Retrying...')
             if peer_connection.is_closed():
                 peer_connection : PeerConnection = self.connect(peer)
@@ -171,18 +203,32 @@ class Node:
 
 
     def send_heartbeat(self, peer: Peer) -> None:
-        """"""
+        """
+        Sends a simple PING message to the specified peer. A PONG message should be expect
+        in return. If not, the provided peer is considered offline.
+
+        retry = True
+        wait_for_reply = True
+        """
 
         payload = 'PING'
 
-        peer_connection : PeerConnection = self.connect(peer)
+        peer_connection : PeerConnection = self.connect(peer, socket_kind=socket.SOCK_DGRAM)
         if peer_connection is not None:
             self.send(peer, peer_connection, MessageType.REQUEST, MessageFlag.HEARTBEAT, payload)
             print('Heartbeat request sent!')
 
     
     def send_version(self, peer: Peer) -> None:
-        """"""
+        """
+        Sends a message containing information about the local machine's network preferences and
+        software. This message is considered a "handshake" as it should be the introduction 
+        message when connecting to new peers. In return, a peer may send a version message
+        themselves if they would like to share information with you.
+
+        retry = True
+        wait_for_reply = True
+        """
         
         payload = {"version": PROTOCOL_VERSION, "address": self.server.host, "port": self.server.port}
 
@@ -240,13 +286,10 @@ class Node:
             print('Block sent!')
 
 
-    def send_campaign(self, peer: Peer) -> None:
+    def send_campaign(self, peer: Peer, block_number: int) -> None:
         """"""
 
-        head : LynxBlockHeader = self.blockchain.get_canonical_head()
-        epoch = EpochContext(start=head.epoch_block_number, slot_num=head.slot, slot_size=head.slot_size)
-
-        block_number, campaign = VRF.generate_random_number(head.block_number, self.account)
+        block_number, campaign = VRF.generate_random_number(block_number, self.account)
 
         payload = {block_number: {"address": self.account.address, "campaign": campaign}}
 
@@ -255,25 +298,41 @@ class Node:
             self.send(peer, peer_connection, MessageType.REQUEST, MessageFlag.CAMPAIGN, payload, wait_for_reply=False)
             print('Campaign sent!')
 
+    
+    def send_query(self, peer: Peer, block_hash: Hash32) -> None:
+
+        payload = {"block_hash": block_hash}
+
+        peer_connection = self.connect(peer)
+        if peer_connection is not None:
+            self.send(peer, peer_connection, MessageType.REQUEST, MessageFlag.QUERY, payload)
+
 
     def add_peer(self, peer: Peer) -> bool:
-        """Adds a peer to the known list of peers."""
+        """
+        Adds a peer to the known list of peers and stores the peer in the Freezer
+        for long term storage.
+        """
 
         if not self.max_peers_reached() and peer not in self.peers:
-            self.peer_lock.acquire()
+            # self.peer_lock.acquire()
             self.peers.append(peer)
             Freezer.store_peer(peer)
-            self.peer_lock.release()
+            # self.peer_lock.release()
             return True
 
         return False
 
 
-    def get_peer(self, address: str, port: str) -> Peer:
-        """Returns the (host, port) tuple for the given peer name."""
+    def get_peer(self, host: str, port: str) -> Peer:
+        """
+        Returns the Peer object for the given peer host and port.
+        If no peer exists with the provided host and port, then
+        None is returned.
+        """
 
         for peer in self.peers:
-            if peer.address == address and peer.port == port:
+            if peer.address == host and peer.port == port:
                 return peer
 
         return None
@@ -299,11 +358,12 @@ class Node:
     #     self.peer_lock.release()
 
 
-    def get_peer_at(self, index) -> tuple:
+    # def get_peer_at(self, index) -> tuple:
 
-        if index not in self.peers:
-            return None
-        return self.peers[index]
+    #     if index not in self.peers:
+    #         return None
+
+    #     return self.peers[index]
 
     # # ------------------------------------------------------------------------------
     # def remove_peer_at(self, index) -> None:
@@ -313,13 +373,16 @@ class Node:
 
 
     def number_of_peers(self) -> int:
-        """Return the number of known peer's."""
+        """
+        Return the number of known peer's.
+        """
 
         return len(self.peers)
 
 
     def max_peers_reached(self) -> bool:
-        """Returns whether the maximum limit of names has been added to the list of
+        """
+        Returns whether the maximum limit of peers has been added to the list of
         known peers. Always returns True if max_peers is set to 0
         """
 

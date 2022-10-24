@@ -18,7 +18,10 @@ if TYPE_CHECKING:
 class Request:
 
     def __init__(self, node: Node, message: Message, peer_connection: PeerConnection) -> None:
-        """"""
+        """
+        Stages the node to handle a request message. Once staged, the corresponding handler
+        function will be called to manage the request.
+        """
 
         self.node = node
         self.message = message
@@ -27,7 +30,10 @@ class Request:
 
 
     def __request_selector(self) -> None:
-        """"""
+        """
+        Given the request's message, a function corresponding to the
+        message's flag will be called in order to handle the request.
+        """
 
         if self.message.flag is MessageFlag.HEARTBEAT:
             self.__handle_heartbeat()
@@ -44,7 +50,10 @@ class Request:
 
     
     def __handle_heartbeat(self) -> None:
-        """"""
+        """
+        In response to a heartbeat request (PING), sends a PONG in response indicating 
+        that the node is still alive and connected.
+        """
 
         payload = 'PONG'
 
@@ -53,7 +62,10 @@ class Request:
 
 
     def __handle_version(self) -> None:
-        """"""
+        """
+        In response to a version request, sends a version message back containing information
+        relating to the node's software version, IP address, and port.
+        """
 
         if MessageValidation.validate_version_request(self.message):
             peer = Peer(**self.message.data)
@@ -79,7 +91,10 @@ class Request:
 
 
     def __handle_transaction(self) -> None:
-        """"""
+        """
+        Validates an incoming transaction. Checks whether the transaction is formatted correctly
+        and if the transaction sender has the funds to complete the transaction.
+        """
         
         if MessageValidation.validate_transaction_request(self.message):
             print('Transaction request received...')
@@ -90,12 +105,17 @@ class Request:
             #TODO FIX THIS
             tx = vm.create_transaction(**raw_tx)
             self.node.mempool.add_transaction(tx)
+
         else:
             print('Transaction request message is formatted incorrectly, unable to handle message...')
 
 
     def __handle_address(self) -> None:
-        """"""
+        """
+        In response to a address request, sends a message back containing a list
+        of nodes that the local machine is currently connected to in an attempt
+        to make the requesting node more well connected.
+        """
 
         host, port = self.peer_connection.socket.getpeername()
 
@@ -111,7 +131,9 @@ class Request:
 
 
     def __handle_block(self) -> None:
-        """"""
+        """
+        
+        """
 
         if MessageValidation.validate_block_request(self.message):
             print("BLOCK RECEIVED")
@@ -120,7 +142,11 @@ class Request:
 
     
     def __handle_campaign(self) -> None:
-        """"""
+        """
+        In response to a campaign request, the campaign will be checked to see whether
+        it is greater than the existing campaign's candidate. If so, the validator will
+        be elected as block leader.
+        """
 
         if MessageValidation.validate_campaign_request(self.message):
             for block_number, leader in self.message.data.items():
@@ -132,10 +158,18 @@ class Request:
                     current_leader : Leader = self.node.leader_schedule.get_leader_by_block_number(block_number)
                     if current_leader is None or new_leader.campaign > current_leader.campaign:
                         self.node.leader_schedule.add_leader(block_number, new_leader)
-                        print(self.node.leader_schedule)
 
         else:
             print('Campaign request message is formatted incorrectly, unable to handle message...')
+
+
+    def __handle_query(self) -> None:
+        """"""
+
+        if MessageValidation.validate_query_request(self.message):
+            if self.message.data["block_hash"] in self.node.snowball.undecided_blocks:
+                pass
+            
 
  
 

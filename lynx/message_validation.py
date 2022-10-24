@@ -1,5 +1,4 @@
-# message.py
-from eth_typing import BlockNumber
+from eth_typing import BlockNumber, Hash32
 from curses.ascii import isdigit
 from typing import List, Dict, Tuple
 from lynx.p2p.message import Message, MessageType, MessageFlag
@@ -103,6 +102,7 @@ class MessageValidation:
 
         return is_type_valid and is_flag_valid and is_data_valid
 
+
     @classmethod
     def validate_campaign_request(cls, message: Message) -> bool:
         """"""
@@ -117,5 +117,16 @@ class MessageValidation:
 
         return is_type_valid and is_flag_valid and is_data_valid
 
+    
+    @classmethod
+    def validate_query_request(cls, message: Message) -> bool:
+        """"""
 
-# end MessageValidation class
+        fields = {'block_hash': Hash32}
+
+        is_type_valid : bool = message.type is MessageType.REQUEST
+        is_flag_valid : bool = message.flag is MessageFlag.QUERY
+        is_data_valid : bool = cls.__validate_fields(message.data, fields)
+
+        return is_type_valid and is_flag_valid and is_data_valid
+

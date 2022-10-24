@@ -10,20 +10,20 @@ class Mempool:
         self.transactions : List[LynxTransaction] = []
         self.__transaction_indexes = {}
         self.tx_expire_time = tx_expire_time
-        self.mempool_lock = threading.Lock()
+        # self.mempool_lock = threading.Lock()
 
 
     def add_transaction(self, transaction: LynxTransaction) -> None:
-        self.mempool_lock.acquire()
+        # self.mempool_lock.acquire()
         index: int = self.getTransactionCount()
         self.transactions.append(transaction)
         self.__transaction_indexes[transaction.hash] = (index, time.time())
-        self.mempool_lock.release()
+        # self.mempool_lock.release()
 
 
     def remove_transaction(self, tx_hash: str) -> None:
         try:
-            self.mempool_lock.acquire()
+            # self.mempool_lock.acquire()
             if self.getTransactionCount() == 1:
                 self.transactions = []
                 self.__transaction_indexes = {}
@@ -38,7 +38,8 @@ class Mempool:
         except KeyError:
             print('Transaction not found in mempool...')
         finally:
-            self.mempool_lock.release()
+            # self.mempool_lock.release()
+            pass
 
 
     def getTransactionCount(self) -> int:

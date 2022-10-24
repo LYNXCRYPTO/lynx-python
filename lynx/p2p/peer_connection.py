@@ -5,23 +5,28 @@ import traceback
 
 class PeerConnection:
 
-    def __init__(self, host: str, port: str, sock:socket.socket=None, peer_id:str=None) -> None:
-        """Any exceptions thrown upwards"""
+    def __init__(self, host: str, port: str, sock:socket.socket=None, socket_kind : socket.SocketKind = socket.SOCK_STREAM, peer_id:str=None) -> None:
+        """
+        Initializes a PeerConnection object with the connected IP address (host) and port (port). 
+        PeerConnection objects can have an pre-connected socket passed as an argument. If no socket
+        is provided, then a socket will be made and connected to automatically. 
+        Any exceptions thrown upwards
+        """
 
         self.id = peer_id
         self.host = host
         self.port = port
 
         if sock is None:
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket = socket.socket(socket.AF_INET, socket_kind)
             self.socket.connect((host, int(port)))
         else:
             self.socket = sock
 
 
     def __make_message(self, message_type, message_flag, message_data) -> Message:
-        """Packs the message into a Message object and then signs it using the 
-        provided Account object.
+        """
+        Packs the message into a Message object.
 
         For more information about packing visit: https://docs.python.org/3/library/struct.html
         """
@@ -31,7 +36,8 @@ class PeerConnection:
 
 
     def send_data(self, message_type: str, message_flag: int, message_data: dict = None) -> bool:
-        """Send a message through a peer connection. Returns True on success or 
+        """
+        Send a message through a peer connection. Returns True on success or 
         False if there was an error.
         """
 
@@ -53,7 +59,8 @@ class PeerConnection:
 
 
     def receive_data(self) -> Message:
-        """Receive a message from a peer connection. Returns an None if there was 
+        """
+        Receive a message from a peer connection. Returns None if there was 
         any error.
         """
 
@@ -66,7 +73,8 @@ class PeerConnection:
 
 
     def close(self) -> None:
-        """Close the peer connection. The send and receive methods will not work
+        """
+        Close the peer connection. The send and receive methods will not work
         after this call.
         """
 
@@ -75,7 +83,9 @@ class PeerConnection:
 
 
     def is_open(self) -> bool:
-        """"""
+        """
+        Checks if the PeerConnection's socket is still open and connected.
+        """
 
         try:
             self.socket.send("lynx")
@@ -86,13 +96,18 @@ class PeerConnection:
 
 
     def is_closed(self) -> bool:
-        """"""
+        """
+        Checks if the PeerConnection's socket is closed and unconnected.
+        """
 
         return not self.is_open()
 
 
     def reconnect(self) -> None:
-        """"""
+        """
+        Attempts to reconnect to the peer using the provided IP address
+        and port.
+        """
         
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((self.host, int(self.port)))

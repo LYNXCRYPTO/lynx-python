@@ -4,7 +4,8 @@ from web3.eth import Contract
 from web3._utils.contracts import encode_transaction_data
 from eth.vm.forks.lynx import LynxVM
 from eth_utils import keccak
-
+from eth_utils import keccak, to_checksum_address, to_bytes
+import rlp
 from eth.constants import ZERO_ADDRESS
 from eth_typing import Address
 import json
@@ -86,4 +87,20 @@ class Registry:
 
 
         # tx_data = encode_transaction_data(web3=Web3(), fn_identifier=fn.fn_name, contract_abi=contract.abi, fn_abi=fn.abi, args=[address])[2:]
+        pass
+
+
+    def mk_contract_address(sender: str, nonce: int) -> str:
+        """Create a contract address using eth-utils.
+
+        # https://ethereum.stackexchange.com/a/761/620
+        """
+        sender_bytes = to_bytes(hexstr=sender)
+        raw = rlp.encode([sender_bytes, nonce])
+        h = keccak(raw)
+        address_bytes = h[12:]
+        return to_checksum_address(address_bytes)
+
+
+    
 

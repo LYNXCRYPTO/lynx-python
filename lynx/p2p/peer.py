@@ -1,6 +1,12 @@
 from eth.rlp.sedes import (uint256)
 
 class Peer:
+    """
+    A blueprint representing other nodes on the Lynx Network. Stores information
+    relating to a peer's IP address, port, software version, recent messages, and
+    connection status.
+    """
+
     fields = [
         ('address', str), 
         ('ipv4', bool), 
@@ -20,7 +26,8 @@ class Peer:
 
 
     def __init__(self, **kwargs) -> None:
-        """Initializes a Peer object with information pertaining to its IP address,
+        """
+        Initializes a Peer object with information pertaining to its IP address,
         port, network, and message logs.
         """
 

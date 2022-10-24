@@ -10,7 +10,11 @@ from eth_typing import BlockNumber
 class Leader:
 
     def __init__(self, address: Address, stake: int, campaign: int) -> None:
-        """"""
+        """
+        Initializes a Leader object representing a block leader. A block leader
+        is a randomly chosen node responsible for proposing blocks in a particular
+        time slot.
+        """
 
         self.address = address
         self.stake = stake
@@ -20,14 +24,19 @@ class Leader:
 class LeaderSchedule:
 
     def __init__(self) -> None:
-        """"""
+        """
+        Initializes a leader schedule as a mapping of a block number
+        to a Leader object.
+        """
 
         self.leader_schedule : Dict[BlockNumber, Leader] = {}
-        self.leader_lock = threading.Lock()
+        # self.leader_lock = threading.Lock()
 
     
     def __str__(self) -> str:
-        """"""
+        """
+        Returns the leader schedule mapping as a readable string.
+        """
 
         return self.leader_schedule.__str__()
 
@@ -47,24 +56,33 @@ class LeaderSchedule:
 
     
     def add_leader(self, block_number: BlockNumber, leader: Leader) -> None:
-        """"""
-        self.leader_lock.acquire()
+        """
+        Adds a leader to the current leader schedule given the block number
+        a validator campaigns for. Raises a ValueError if the potential leader's
+        campaign is not greater than the current leader's campaign.
+        """
+
+        # self.leader_lock.acquire()
         if block_number in self.leader_schedule:
             current_leader : Leader = self.leader_schedule[block_number]
             if leader.campaign <= current_leader:
                 raise ValueError
 
         self.leader_schedule[block_number] = leader
-        self.leader_lock.release()
+        # self.leader_lock.release()
         
     
     def get_leader_by_block_number(self, block_number: BlockNumber) -> Tuple[int, int]:
-        """"""
+        """
+        Returns a Leader object corresponding with the provided block number. If no
+        leader exists for the provided block number, this function will return None.
+        """
 
         if block_number in self.leader_schedule:
             return self.leader_schedule[block_number]
         
         return None
+
         
     
         

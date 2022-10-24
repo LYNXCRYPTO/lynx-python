@@ -1,0 +1,2 @@
+snappy_manifolds
+snappy_manifolds/sqlite_files

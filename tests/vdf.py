@@ -1,5 +1,5 @@
 from lynx.consensus.vdf import VDF
-from lynx.generator import Generator
+from lynx.consensus.generator import Generator
 from lynx.consensus.vrf import VRF
 from lynx.wallet import Wallet
 from lynx.blockchain import (

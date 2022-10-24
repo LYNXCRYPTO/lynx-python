@@ -1,4 +1,7 @@
+from eth_keys import keys
+
 # Chain ID
 LYNX_CHAIN_ID = 69
 
-# 
+# Genesis
+SATOSHIS_PRIVATE_KEY = keys.PrivateKey(bytes.fromhex('6969669696696966969669696696966969669696696966969669696696966969'))
