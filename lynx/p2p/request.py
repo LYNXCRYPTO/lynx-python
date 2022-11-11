@@ -2,14 +2,17 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from eth_account import Account
 from eth_account.messages import encode_defunct
+from lynx.consensus.snowball import SnowballDecision
 from lynx.p2p.peer import Peer
 from lynx.p2p.message import Message, MessageType, MessageFlag
 from lynx.consensus.leader_schedule import Leader, LeaderSchedule
 from lynx.consensus.vrf import VRF
-from lynx.message_validation import MessageValidation
+from lynx.p2p.message_validation import MessageValidation
 from lynx.constants import PROTOCOL_VERSION
+from eth.chains.lynx import LynxChain
 from eth.vm.forks.lynx import LynxVM
-from eth_typing import Address
+from eth.vm.forks.lynx.blocks import LynxBlock, LynxBlockHeader
+from eth_typing import Address, Hash32, BlockNumber
 if TYPE_CHECKING:
     from peer_connection import PeerConnection
     from lynx.p2p.node import Node
@@ -35,18 +38,20 @@ class Request:
         message's flag will be called in order to handle the request.
         """
 
-        if self.message.flag is MessageFlag.HEARTBEAT:
-            self.__handle_heartbeat()
-        if self.message.flag is MessageFlag.VERSION:
-            self.__handle_version()
-        elif self.message.flag is MessageFlag.TRANSACTION:
-            self.__handle_transaction()
-        elif self.message.flag is MessageFlag.ADDRESS:
-            self.__handle_address()
-        elif self.message.flag is MessageFlag.BLOCK:
-            self.__handle_block()
-        elif self.message.flag is MessageFlag.CAMPAIGN:
-            self.__handle_campaign()
+        
+        if MessageValidation.validate_message(self.message):
+            if self.message.flag is MessageFlag.HEARTBEAT:
+                self.__handle_heartbeat()
+            elif self.message.flag is MessageFlag.VERSION:
+                self.__handle_version()
+            elif self.message.flag is MessageFlag.TRANSACTION:
+                self.__handle_transaction()
+            elif self.message.flag is MessageFlag.ADDRESS:
+                self.__handle_address()
+            elif self.message.flag is MessageFlag.BLOCK:
+                self.__handle_block()
+            elif self.message.flag is MessageFlag.CAMPAIGN:
+                self.__handle_campaign()
 
     
     def __handle_heartbeat(self) -> None:
@@ -67,27 +72,21 @@ class Request:
         relating to the node's software version, IP address, and port.
         """
 
-        if MessageValidation.validate_version_request(self.message):
-            peer = Peer(**self.message.data)
-            peer_added = self.node.add_peer(peer)
+        peer = Peer(**self.message.data)
+        if peer.address == self.node.server.host:
+            peer.address = "127.0.0.1"
+        peer_added = self.node.add_peer(peer)
 
-            if peer_added:
-                if self.node.server.host == peer.address:
-                    address = '127.0.0.1'
-                else:
-                    address = self.node.server.host
+        if peer_added:
+            payload = {"version": PROTOCOL_VERSION, "address": self.node.server.host, "port": self.node.server.port}
 
-                payload = {"version": PROTOCOL_VERSION, "address": address, "port": self.node.server.port}
+            self.peer_connection.send_data(message_type=MessageType.RESPONSE, message_flag=self.message.flag, message_data=payload)
 
-                self.peer_connection.send_data(message_type=MessageType.RESPONSE, message_flag=self.message.flag, message_data=payload)
-
-            else:
-                if self.node.max_peers_reached():
-                    print("Max peers reached, unable to add peer...")
-                else:
-                    print("Peer is already known...")
         else:
-            print('Version request message is formatted incorrectly, unable to handle message...')
+            if self.node.max_peers_reached():
+                print("Max peers reached, unable to add peer...")
+            else:
+                print("Peer is already known...")
 
 
     def __handle_transaction(self) -> None:
@@ -96,18 +95,13 @@ class Request:
         and if the transaction sender has the funds to complete the transaction.
         """
         
-        if MessageValidation.validate_transaction_request(self.message):
-            print('Transaction request received...')
-            vm : LynxVM = self.node.blockchain.get_vm()
-            raw_tx = self.message.data
-            raw_tx['to'] = Address(raw_tx['to'].encode())
-            raw_tx['data'] = raw_tx['data'].encode()
-            #TODO FIX THIS
-            tx = vm.create_transaction(**raw_tx)
-            self.node.mempool.add_transaction(tx)
-
-        else:
-            print('Transaction request message is formatted incorrectly, unable to handle message...')
+        vm : LynxVM = self.node.blockchain.get_vm()
+        raw_tx = self.message.data
+        raw_tx['to'] = Address(raw_tx['to'].encode())
+        raw_tx['data'] = raw_tx['data'].encode()
+        #TODO FIX THIS
+        tx = vm.create_transaction(**raw_tx)
+        self.node.mempool.add_transaction(tx)
 
 
     def __handle_address(self) -> None:
@@ -127,7 +121,7 @@ class Request:
 
         payload = {'peers': peers}
 
-        self.peer_connection.send_data(message_type=MessageType.RESPONSE, message_flag=self.message.flag, message_data=payload)
+        self.peer_connection.send_data(MessageType.RESPONSE, self.message.flag, payload)
 
 
     def __handle_block(self) -> None:
@@ -135,12 +129,29 @@ class Request:
         
         """
 
-        if MessageValidation.validate_block_request(self.message):
-            print("BLOCK RECEIVED")
-        else:
-            print('Block request message is formatted incorrectly, unable to handle message...')
+        payload = {"blocks": []}
 
+        blockchain : LynxChain = self.node.blockchain
+        head : LynxBlockHeader = blockchain.get_canonical_head()
+        if head.block_number > self.message.data["best_block"]:
+            for block_number in range(self.message.data["best_block"] + 1, head.block_number + 1):
+                block : LynxBlock = blockchain.get_canonical_block_by_number(block_number)
+                header = block.header.as_dict()
+                header['parent_hash'] = header['parent_hash'].hex()
+                header['coinbase'] = header['coinbase'].hex()
+                header['state_root'] = header['state_root'].hex()
+                header['transaction_root'] = header['transaction_root'].hex()
+                header['receipt_root'] = header['receipt_root'].hex()
+                header['extra_data'] = header['extra_data'].hex()
+                # TEST 
+                # header['slot_size'] = 69
+
+                payload['blocks'].append(header)
+
+        if payload['blocks']:
+            self.peer_connection.send_data(MessageType.RESPONSE, self.message.flag, payload)
     
+
     def __handle_campaign(self) -> None:
         """
         In response to a campaign request, the campaign will be checked to see whether
@@ -148,28 +159,27 @@ class Request:
         be elected as block leader.
         """
 
-        if MessageValidation.validate_campaign_request(self.message):
-            for block_number, leader in self.message.data.items():
-                # TODO: Verify leader's campaign (campaign x validator's stake)
-                new_leader : Leader = Leader(leader['address'], 69, leader['campaign'])
-                address = Address(bytes.fromhex(new_leader.address[2:]))
+        for block_number, leader in self.message.data.items():
+            # TODO: Verify leader's campaign (campaign x validator's stake)
+            new_leader : Leader = Leader(leader['address'], 69, leader['campaign'])
+            address = Address(bytes.fromhex(new_leader.address[2:]))
 
-                if VRF.verify_random_number(block_number, address, new_leader.campaign):
-                    current_leader : Leader = self.node.leader_schedule.get_leader_by_block_number(block_number)
-                    if current_leader is None or new_leader.campaign > current_leader.campaign:
-                        self.node.leader_schedule.add_leader(block_number, new_leader)
+            if VRF.verify_random_number(block_number, address, new_leader.campaign):
+                current_leader : Leader = self.node.leader_schedule.get_leader_by_block_number(block_number)
+                if current_leader is None or new_leader.campaign > current_leader.campaign:
+                    self.node.leader_schedule.add_leader(block_number, new_leader)
 
-        else:
-            print('Campaign request message is formatted incorrectly, unable to handle message...')
 
 
     def __handle_query(self) -> None:
         """"""
 
-        if MessageValidation.validate_query_request(self.message):
-            if self.message.data["block_hash"] in self.node.snowball.undecided_blocks:
-                pass
-            
+        block_number : BlockNumber = self.message.data["block_number"]
+        decision : SnowballDecision = self.node.snowball.get_decision_by_block_number(block_number)
+        if decision is not None:
+            if decision.chit:
+                payload = {"block_hash": decision.block_header.hash}
+                self.peer_connection.send_data(MessageType.RESPONSE, self.message.flag, payload)
 
  
 

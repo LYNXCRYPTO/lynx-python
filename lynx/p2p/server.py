@@ -103,7 +103,7 @@ class Server:
 
         while not self.shutdown:
             if q.empty():
-                print(ls)
+                pass
             try:
                 client_socket, client_address = server_socket.accept()
                 client_socket.settimeout(None)

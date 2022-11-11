@@ -25,6 +25,9 @@ class Bootstrap:
             node.broadcast(MessageFlag.ADDRESS)
             cls.__start_bootstrap_timeout(node)
 
+            node.broadcast(MessageFlag.BLOCK)
+            cls.__start_bootstrap_timeout(node)
+
 
     @classmethod 
     def from_peers(cls, node: Node, peers: Tuple[Peer]) -> None:
@@ -37,9 +40,11 @@ class Bootstrap:
 
         if not node.max_peers_reached() and len(node.peers) > 0:
             node.broadcast(MessageFlag.ADDRESS)
-            cls.__start_bootstrap_timeout(node)   
+            cls.__start_bootstrap_timeout(node)
+
+            node.broadcast(MessageFlag.BLOCK)
+            cls.__start_bootstrap_timeout(node)
             
-    
     @classmethod 
     def __start_bootstrap_timeout(cls, node: Node, timeout: int = 5) -> None:
         """
@@ -49,6 +54,6 @@ class Bootstrap:
         """
 
         start_time = time.time()
-        while not node.max_peers_reached() and (time.time() - start_time) <= timeout:
+        while not node.max_peers_reached() and (time.time() - start_time) < timeout:
             time.sleep(3)
 

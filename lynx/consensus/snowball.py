@@ -1,6 +1,8 @@
 from typing import Dict, List
 from eth_typing import BlockNumber, Hash32
 from eth.vm.forks.lynx.blocks import LynxBlockHeader
+# from lynx.p2p.node import Node # Problem here
+from lynx.p2p.message import Message, MessageFlag, MessageType
 
 
 class SnowballDecision:
@@ -64,11 +66,39 @@ class SnowballConsensus:
     def init(self) -> None:
         """
         Initializes an instance of the SnowballConsensus engine which includes
-        a information relating to undecided blocks and the decision of their blocks.
+        information relating to undecided blocks and the status of those blocks.
         """
 
         self.undecided_blocks : Dict[BlockNumber, List[Hash32]] = {}
         self.decisions : Dict[Hash32, SnowballDecision] = {}
+
+
+    # @classmethod
+    # def query(cls, node : Node, block_number : BlockNumber) -> None:
+    #     """
+    #     Broadcasts a query request message to a batch of randomly sampled
+    #     validators. The queried validators are selected through a stake weighted
+    #     random selection algorithm. In response, we expect each node to send their
+    #     preferred block for the given block number.
+    #     """
+
+    #     payload = {"block_number": block_number}
+    #     node.broadcast(MessageFlag.QUERY, payload=payload)
+
+        
+    def get_decision_by_block_number(self, block_number : BlockNumber) -> SnowballDecision:
+        """
+        Attempts return the decision of the block given its block number.
+        Returns None if the block is not being considered.
+        """
+
+        undecided_blocks = self.undecided_blocks.get(block_number)
+        if undecided_blocks:
+            block_hash = undecided_blocks[0]
+            if block_hash in self.decisions:
+                return self.decisions[block_hash]
+
+        return None
 
 
     def add_block(self, block_header : LynxBlockHeader) -> bool:

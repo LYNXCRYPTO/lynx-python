@@ -22,4 +22,4 @@ EXTERNAL_IP_HOSTS = ['https://checkip.amazonaws.com', 'https://api.ipify.org', '
 REGISTRY_CONTRACT_ADDRESS = Address(bytes.fromhex('6969696969696969696969696969696969696969'))
 
 # Bootstrapping
-BOOTSTRAP_PEERS = [Peer(address='427.6.0.42', port='1234'), Peer(address='168.72.0.31', port='4321'), Peer(address='127.0.0.1', port='6968')]
+BOOTSTRAP_PEERS = [Peer(address='127.0.0.1', port='6968')]

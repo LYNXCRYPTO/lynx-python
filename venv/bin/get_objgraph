@@ -1,4 +1,8 @@
+<<<<<<< HEAD
+#!/Users/jordanlesson/Documents/development/lynx-python/venv/bin/python3
+=======
 #!/Users/jordanlesson/Documents/development/lynx-python/venv/bin/python
+>>>>>>> ac06c7b6fac3fafcccabadf3fa88f16377c619c9
 #
 # Author: Mike McKerns (mmckerns @caltech and @uqfoundation)
 # Copyright (c) 2008-2016 California Institute of Technology.

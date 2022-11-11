@@ -417,13 +417,19 @@ class Freezer:
 
         peers : List[Peer] = []
 
-        for f in files:
-            file_path = Path(f)
-            with open(file_path, 'r') as file:
-                file_contents = json.load(file)
-                for key, value in file_contents.items():
-                    if len(peers) < max_peers:
-                        peer : Peer = Peer(address=value['address'], port=value['port'])
-                        peers.append(peer)
+        try:
+
+            for f in files:
+                file_path = Path(f)
+                with open(file_path, 'r') as file:
+                    file_contents = json.load(file)
+                    for key, value in file_contents.items():
+                        if len(peers) < max_peers:
+                            peer : Peer = Peer(address=value['address'], port=value['port'])
+                            peers.append(peer)
+
+        except json.decoder.JSONDecodeError:
+
+            return tuple()
 
         return tuple(peers)

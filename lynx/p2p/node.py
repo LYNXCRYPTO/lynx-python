@@ -27,13 +27,13 @@ from eth.db.atomic import AtomicDB
 from eth.vm.forks.lynx.transactions import LynxTransaction
 from eth.vm.forks.lynx.blocks import LynxBlock, LynxBlockHeader
 from eth_account import Account
-from eth_typing import Address, Hash32
+from eth_typing import Address, BlockNumber
 from eth_keys import keys
 
 class Node:
     """Implements the core functionality of a node on the Lynx network."""
 
-    def __init__(self, host: str = None, port: str = DEFAULT_PORT, peers: List[Peer] = [], max_peers: int = DEFAULT_MAX_PEERS) -> None:
+    def __init__(self, host: str = None, port: str = DEFAULT_PORT, peers: List[Peer] = [], max_peers: int = DEFAULT_MAX_PEERS, bootstrap_on_start : bool = True, listen_on_start : bool = True) -> None:
         """
         Initializes a node with the ability to receive requests, store information, and
         handle responses.
@@ -64,26 +64,29 @@ class Node:
         print('Initializing Consensus Engine...')
         self.snowball = SnowballConsensus()
         
-        self.is_bootstrapping = True
-        print('Configuring Bootstrap Process...')
-        known_peers = Freezer.get_peers()
-        if known_peers:
-            Bootstrap.from_peers(self, known_peers)
+        if bootstrap_on_start:
+            self.is_bootstrapping = True
+            print('Configuring Bootstrap Process...')
+            known_peers = Freezer.get_peers()
+            if known_peers:
+                Bootstrap.from_peers(self, known_peers)
                 
-        if len(self.peers) < max_peers:
-            Bootstrap.from_seeds(self)
-        
-        # self.queue = multiprocess.Queue()
-        # self.queue.put("SOMETHING")
+            # if len(self.peers) < max_peers:
+            #     Bootstrap.from_seeds(self)
 
-        # if not self.is_bootstrapping:
-        #     head : LynxBlockHeader = self.blockchain.get_canonical_head()
-        #     epoch = EpochContext(start=(head.block_number - (head.epoch_block_number - 1)), slot=head.slot, size=head.epoch_size, slot_size=head.slot_size)
-        #     self.generator = Generator(self, epoch)
-        #     p1 = multiprocess.Process(target=self.generator.start_generator, args=(self.queue,), name='Generator Process')
-        #     p1.start()
-        
-        # self.server.start_server_listen(self.queue, self.leader_schedule)
+        if listen_on_start:
+            self.queue = multiprocess.Queue()
+            self.blockchain.forge_block()
+            # self.queue.put("SOMETHING")
+
+            # if not self.is_bootstrapping:
+            #     head : LynxBlockHeader = self.blockchain.get_canonical_head()
+            #     epoch = EpochContext(start=(head.block_number - (head.epoch_block_number - 1)), slot=head.slot, size=head.epoch_size, slot_size=head.slot_size)
+            #     self.generator = Generator(self, epoch)
+            #     p1 = multiprocess.Process(target=self.generator.start_generator, args=(self.queue,), name='Generator Process')
+            #     p1.start()
+            
+            self.server.start_server_listen(self.queue, self.leader_schedule)
 
 
 
@@ -148,7 +151,9 @@ class Node:
                 while reply is not None:
                     message_replies.append(reply)
                     print(f'Received a reply from {peer}!')
-                    reply = peer_connection.receive_data()
+                    reply = None # Temporary because line below stalled the program
+                    # if peer_connection.is_open:
+                    #     reply = peer_connection.receive_data()
 
                 for i, r in enumerate(message_replies):
                     print(f'Reply #{i + 1} Contents:\n\tType: {r.type}\n\tFlag: {r.flag}\n\tData: {r.data}\n')
@@ -174,7 +179,7 @@ class Node:
             else:
                 print(f'Unable to reconnect to {peer}...')
         
-        if peer_connection.is_open():
+        if peer_connection and peer_connection.is_open():
             peer_connection.close()
 
         return message_replies
@@ -194,11 +199,13 @@ class Node:
             elif flag is MessageFlag.TRANSACTION:
                 thread = threading.Thread(target=self.send_transaction, args=[peer, payload], name=f'Transaction Thread ({peer.address})')
             elif flag is MessageFlag.ADDRESS:
-                thread = threading.Thread(target=self.send_address, args=[peer], name=f'Address Thread ({peer.address})')
+                thread = threading.Thread(target=self.send_address_request, args=[peer], name=f'Address Thread ({peer.address})')
             elif flag is MessageFlag.BLOCK:
-                thread = threading.Thread(target=self.send_block, args=[peer, payload], name=f'Block Thread ({peer.address})')
+                thread = threading.Thread(target=self.send_block_request, args=[peer], name=f'Block Thread ({peer.address})')
             elif flag is MessageFlag.CAMPAIGN:
                 thread = threading.Thread(target=self.send_campaign, args=[peer], name=f'Campaign Thread ({peer.address})')
+            elif flag is MessageFlag.QUERY:
+                thread = threading.Thread(target=self.send_query, args=[peer], name=f'Query Thread ({peer.address})')
             thread.start()
 
 
@@ -252,7 +259,7 @@ class Node:
             print('Transaction sent!')
 
     
-    def send_address(self, peer: Peer) -> None:
+    def send_address_request(self, peer: Peer) -> None:
         """"""
 
         payload = {"address": self.server.host, "port": self.server.port}
@@ -263,27 +270,18 @@ class Node:
             print('Address request sent!')
 
 
-    def send_block(self, peer: Peer, block: LynxBlock) -> None:
+    def send_block_request(self, peer: Peer) -> None:
         """"""
 
-        payload = block.as_dict()
-        transactions = []
-        for tx in block.transactions:
-            transaction = tx.as_dict()
-            transaction['to'] = transaction['to'].hex()
-            transaction['data'] = transaction['data'].hex()
-            transactions.append(transaction)
-
-        payload['header'] = block.header.as_dict()
-        for key, value in payload['header'].items():
-            if isinstance(value, bytes):
-                payload['header'][key] = value.hex()
-        payload['transactions'] = tuple(transactions)
+        head : LynxBlockHeader = self.blockchain.get_canonical_head()
+        
+        payload = {"best_block": head.block_number}
 
         peer_connection : PeerConnection = self.connect(peer)
         if peer_connection is not None:
-            self.send(peer, peer_connection, MessageType.REQUEST, MessageFlag.BLOCK, payload, wait_for_reply=False)
+            self.send(peer, peer_connection, MessageType.REQUEST, MessageFlag.BLOCK, payload, wait_for_reply=True)
             print('Block sent!')
+            
 
 
     def send_campaign(self, peer: Peer, block_number: int) -> None:
@@ -299,9 +297,9 @@ class Node:
             print('Campaign sent!')
 
     
-    def send_query(self, peer: Peer, block_hash: Hash32) -> None:
+    def send_query(self, peer: Peer, block_number: BlockNumber) -> None:
 
-        payload = {"block_hash": block_hash}
+        payload = {"block_number": block_number}
 
         peer_connection = self.connect(peer)
         if peer_connection is not None:
